@@ -11,6 +11,15 @@ class Callback:
     KEY_SHARE = 0
 
 
+class Message:
+
+    def __init__(self, callback, payload):
+        self.callback = callback
+        self.payload = payload
+
+    def __str__(self):
+        return "\nCallback: " + str(self.callback) + "\nPayload: " + str(self.payload)
+
 class NetworkError(RuntimeError):
     def __init__(self, arg):
         self.args = arg

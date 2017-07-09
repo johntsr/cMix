@@ -16,11 +16,12 @@ class Network:
         mixNode.setNetwork(self)
         self.mixNodes.append(mixNode)
         self.networkParts[mixNode.id] = mixNode
+        self.networkHandler.includeNode()
 
     def __receive(self, recipientId, message):
         code = self.networkParts[recipientId].receive(message)
         if code != Status.OK:
-            raise NetworkError((code, recipientId, message))
+            raise NetworkError((code, recipientId, str(message)))
 
     def broadcast(self, senderId, message):
         for partId in self.networkParts:

@@ -1,11 +1,13 @@
 from network_part import NetworkPart
 from crypto_utils import CyclicGroup, shuffle, power
-from network_utils import Callback
+from network_utils import Status, Callback, Message
+
 
 class MixNode (NetworkPart):
 
     def __init__(self, b):
         NetworkPart.__init__(self)
+        self.sharedKey = None
         self.b = b
         self.r = []
         self.s = []
@@ -23,8 +25,14 @@ class MixNode (NetworkPart):
         # print "s = ", self.s
         # print "perm = ", self.perm
 
+        self.associateCallback(Callback.KEY_SHARE, self.storeSharedKey, 1)
+
     def decrypt(self, cipher):
         return power(cipher, -self.e[0])
 
     def init(self):
-        self.network.sendToNH((Callback.KEY_SHARE, self.e[1]))
+        self.network.sendToNH(Message(Callback.KEY_SHARE, self.e[1]))
+
+    def storeSharedKey(self, key):
+        self.sharedKey = key
+        return Status.OK
