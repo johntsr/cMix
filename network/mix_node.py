@@ -1,6 +1,6 @@
 from network_part import NetworkPart
 from crypto_utils import CyclicGroup, shuffle, power
-
+from network_utils import Callback
 
 class MixNode (NetworkPart):
 
@@ -25,3 +25,6 @@ class MixNode (NetworkPart):
 
     def decrypt(self, cipher):
         return power(cipher, -self.e[0])
+
+    def init(self):
+        self.network.sendToNH((Callback.KEY_SHARE, self.e[1]))
