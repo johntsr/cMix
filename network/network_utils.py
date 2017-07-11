@@ -9,6 +9,7 @@ class Status:
 
 class Callback:
     KEY_SHARE = 0
+    R_INVERSE_EG = 1
 
 
 class Message:
@@ -19,6 +20,7 @@ class Message:
 
     def __str__(self):
         return "\nCallback: " + str(self.callback) + "\nPayload: " + str(self.payload)
+
 
 class NetworkError(RuntimeError):
     def __init__(self, arg):

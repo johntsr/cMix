@@ -1,4 +1,3 @@
-import logging, sys
 from network_utils import Status, NetworkError, handleError
 
 
@@ -12,18 +11,25 @@ class NetworkPart:
         self.callbacks = {}
         self.timesCalled = {}
         self.timesMax = {}
-        print "Network part created with id = ", self.id
+        # print "Network part created with id = ", self.id
 
-    def associateCallback(self, code, callback, timesMax=sys.maxint):
+    def associateCallback(self, code, callback, timesMax=None):
         self.callbacks[code] = callback
         self.timesCalled[code] = 0
+
+        if timesMax is None:
+            timesMax = 0
+
         self.timesMax[code] = timesMax
 
     def setNetwork(self, network):
         self.network = network
 
+    def lastCall(self, code):
+        return self.timesCalled[code] == self.timesMax[code]
+
     def receive(self, message):
-        print "Network part ", self.id, " got message: ", str(message)
+        # print "Network part ", self.id, " got message: ", str(message)
         if self.timesCalled[message.callback] <= self.timesMax[message.callback]:
             self.timesCalled[message.callback] += 1
             return self.callbacks[message.callback](message)

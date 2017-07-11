@@ -34,4 +34,7 @@ class Network:
 
     def init(self):
         for mixNode in self.mixNodes:
-            mixNode.init()
+            mixNode.computeSecretShare()
+
+        for mixNode in self.mixNodes:
+            mixNode.computeR_ElGamal()
