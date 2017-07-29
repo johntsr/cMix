@@ -1,7 +1,6 @@
 from network.network import Network
 from network.network_handler import NetworkHandler
 from network.mix_node import MixNode
-from crypto_utils import CyclicGroup
 
 def setUpNetwork():
     b = 6
@@ -20,5 +19,4 @@ def setUpNetwork():
 
 
 if __name__ == "__main__":
-    CyclicGroup.test()
-    # setUpNetwork()
+    setUpNetwork()
