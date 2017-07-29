@@ -9,9 +9,11 @@ class Status:
 
 class Callback:
     KEY_SHARE = 0
-    PRE_PREPROCESS = 1
-    PRE_MIX = 2
-    PRE_POSTPROCESS = 3
+    PRE_FOR_PREPROCESS = 1
+    PRE_FOR_MIX = 2
+    PRE_FOR_POSTPROCESS = 3
+    PRE_RET_MIX = 4
+    PRE_RET_POSTPROCESS = 5
 
 class Message:
 

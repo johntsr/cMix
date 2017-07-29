@@ -12,8 +12,10 @@ def power(base, exp, modulo=None):
     else:
         return pow(base, exp, modulo)
 
+
 def permute(perm, array):
     return [array[p] for p in perm]
+
 
 class ElGamalCipher:
 

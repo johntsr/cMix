@@ -39,11 +39,22 @@ class Network:
 
     def sendToNextNode(self, id, message):
         if self.isLastNode(id):
-            raise NetworkError((Status.ERROR, id, "Cannot send to next node, I am last!" + "(message = " + str(message)))
+            raise NetworkError((Status.ERROR, id, "Cannot send to next node, I am last!" + " (message = " + str(message)))
 
-        for i in range(0, len(self.mixNodes)):
+        for i in range(0, len(self.mixNodes) - 1):
             if self.mixNodes[i].id == id:
                 self.__receive(self.mixNodes[i+1].id, message)
+
+    def isFirstNode(self, id):
+        return self.mixNodes[0].id == id
+
+    def sendToPreviousNode(self, id, message):
+        if self.isFirstNode(id):
+            raise NetworkError((Status.ERROR, id, "Cannot send to previous node, I am first!" + " (message = " + str(message)))
+
+        for i in range(1, len(self.mixNodes)):
+            if self.mixNodes[i].id == id:
+                self.__receive(self.mixNodes[i-1].id, message)
 
     def broadcastToNodes(self, id, message):
         for node in self.mixNodes:
@@ -55,4 +66,4 @@ class Network:
             mixNode.computeSecretShare()
 
         for mixNode in self.mixNodes:
-            mixNode.computeR_ElGamal()
+            mixNode.precompute()
