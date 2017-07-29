@@ -8,7 +8,7 @@ class NetworkHandler (NetworkPart):
     def __init__(self):
         NetworkPart.__init__(self)
         self.associateCallback(Callback.KEY_SHARE, self.appendKeyShare)
-        self.associateCallback(Callback.R_INVERSE_EG, self.computeR_ElGamal)
+        self.associateCallback(Callback.PRE_PREPROCESS, self.computeR_ElGamal)
         self.nodesNum = 0
         self.d = 1
         self.R_inverseEG = []
@@ -16,14 +16,13 @@ class NetworkHandler (NetworkPart):
     def includeNode(self):
         self.nodesNum += 1
         self.timesMax[Callback.KEY_SHARE] = self.nodesNum
-        self.timesMax[Callback.R_INVERSE_EG] = self.nodesNum
+        self.timesMax[Callback.PRE_PREPROCESS] = self.nodesNum
 
     def appendKeyShare(self, message):
         share = message.payload
         code = message.callback
-        # print "Will append ", share
         self.d = CyclicGroup.multiply(self.d, share)
-        if self.lastCall(code):
+        if self.isLastCall(code):
             self.broadcast(Message(Callback.KEY_SHARE, self.d))
 
         return Status.OK
@@ -36,7 +35,6 @@ class NetworkHandler (NetworkPart):
             self.R_inverseEG = r_inverseEG
         else:
             self.R_inverseEG = [r1.multiply(r2) for r1, r2 in zip(self.R_inverseEG, r_inverseEG)]
-            if self.lastCall(code):
-                self.broadcast(Message(Callback.R_INVERSE_EG, self.R_inverseEG))
-
+            if self.isLastCall(code):
+                self.network.sendToFirstNode(Message(Callback.PRE_MIX, self.R_inverseEG))
         return Status.OK

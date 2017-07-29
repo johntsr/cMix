@@ -9,8 +9,9 @@ class Status:
 
 class Callback:
     KEY_SHARE = 0
-    R_INVERSE_EG = 1
-
+    PRE_PREPROCESS = 1
+    PRE_MIX = 2
+    PRE_POSTPROCESS = 3
 
 class Message:
 

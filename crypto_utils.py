@@ -12,6 +12,8 @@ def power(base, exp, modulo=None):
     else:
         return pow(base, exp, modulo)
 
+def permute(perm, array):
+    return [array[p] for p in perm]
 
 class ElGamalCipher:
 
@@ -51,6 +53,11 @@ class CyclicGroup:
     @staticmethod
     def exp2group(e):
         return CyclicGroup.exp(CyclicGroup.g, e)
+
+    @staticmethod
+    def exp2inverse(e):
+        r = CyclicGroup.exp2group(e)
+        return CyclicGroup.inverse(r)
 
     # @staticmethod
     # def exp2inverse(exp):

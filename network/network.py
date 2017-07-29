@@ -25,12 +25,30 @@ class Network:
 
     def broadcast(self, senderId, message):
         for partId in self.networkParts:
-            if partId == senderId:
-                continue
-            self.__receive(partId, message)
+            if partId != senderId:
+                self.__receive(partId, message)
 
     def sendToNH(self, message):
         self.__receive(self.networkHandler.id, message)
+
+    def sendToFirstNode(self, message):
+        self.__receive(self.mixNodes[0].id, message)
+
+    def isLastNode(self, id):
+        return self.mixNodes[-1].id == id
+
+    def sendToNextNode(self, id, message):
+        if self.isLastNode(id):
+            raise NetworkError((Status.ERROR, id, "Cannot send to next node, I am last!" + "(message = " + str(message)))
+
+        for i in range(0, len(self.mixNodes)):
+            if self.mixNodes[i].id == id:
+                self.__receive(self.mixNodes[i+1].id, message)
+
+    def broadcastToNodes(self, id, message):
+        for node in self.mixNodes:
+            if node.id != id:
+                self.__receive(node.id, message)
 
     def init(self):
         for mixNode in self.mixNodes:
