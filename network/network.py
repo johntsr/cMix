@@ -5,6 +5,7 @@ class Network:
     def __init__(self):
         self.networkHandler = None
         self.mixNodes = []
+        self.users = {}
         self.networkParts = {}
 
     def setNetworkHandler(self, networkHandler):
@@ -17,6 +18,11 @@ class Network:
         self.mixNodes.append(mixNode)
         self.networkParts[mixNode.id] = mixNode
         self.networkHandler.includeNode()
+
+    def addUser(self, user):
+        user.setNetwork(self)
+        self.users[user.id] = user
+        self.networkParts[user.id] = user
 
     def __receive(self, recipientId, message):
         code = self.networkParts[recipientId].receive(message)

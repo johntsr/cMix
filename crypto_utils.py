@@ -1,9 +1,19 @@
-from Crypto import Random
-from Crypto import Util
+from Crypto import Random, Util
 
 
 def shuffle(sequence):
     Random.random.shuffle(sequence)
+
+
+def inversePermute(perm):
+    permInverse = []
+    b = len(perm)
+    for p in range(0, b):
+        for i in range(0, b):
+            if perm[i] == p:
+                permInverse.append(i)
+                break
+    return permInverse
 
 
 def power(base, exp, modulo=None):
@@ -11,6 +21,7 @@ def power(base, exp, modulo=None):
         return pow(base, exp)
     else:
         return pow(base, exp, modulo)
+
 
 class ElGamal:
 
@@ -22,12 +33,16 @@ class ElGamal:
             self.randomComponent = CyclicGroup.exp2group(y)
             self.messageComponent = CyclicGroup.multiply(value, CyclicGroup.exp(sharedKey, y))
 
+    def __eq__(self, other):
+        return self.randomComponent == other.randomComponent and self.messageComponent == other.messageComponent
+
     @staticmethod
     def multiply(c1, c2):
         result = ElGamal()
         result.randomComponent = CyclicGroup.multiply(c1.randomComponent, c2.randomComponent)
         result.messageComponent = CyclicGroup.multiply(c1.messageComponent, c2.messageComponent)
         return result
+
 
 class ElGamalVector:
 
@@ -36,6 +51,9 @@ class ElGamalVector:
             self.vector = [ElGamal(key, v) for v in vector]
         else:
             self.vector = vector
+
+    def __eq__(self, other):
+        return self.vector == other.vector
 
     def permute(self, perm):
         return ElGamalVector([self.vector[p] for p in perm])
@@ -50,6 +68,7 @@ class ElGamalVector:
     def multiply(vector1, vector2):
         return ElGamalVector(vector=[ElGamal.multiply(v1, v2) for v1, v2 in zip(vector1.vector, vector2.vector)])
 
+
 class CyclicGroupVector:
 
     def __init__(self, size=None, vector=None):
@@ -60,23 +79,26 @@ class CyclicGroupVector:
         else:
             self.vector = vector
 
+    def __eq__(self, other):
+        return self.vector == other.vector
+
     def encrypt(self, key):
         return ElGamalVector(self.vector, key)
 
     def exp(self, e):
         return CyclicGroupVector(vector=[CyclicGroup.exp(v, e) for v in self.vector])
 
+    @staticmethod
+    def multiply(vector1, vector2):
+        return CyclicGroupVector(vector=[CyclicGroup.multiply(v1, v2) for v1, v2 in zip(vector1.vector, vector2.vector)])
+
+
 class CyclicGroupDualArray:
 
     def __init__(self, b):
         self.array = CyclicGroupVector(size=b)
-        self.arrayInverse = CyclicGroupVector(vector=[CyclicGroup.inverse(a) for a in self.array.vector])
+        self.inverse = CyclicGroupVector(vector=[CyclicGroup.inverse(a) for a in self.array.vector])
 
-    def array(self):
-        return self.array
-
-    def inverse(self):
-        return self.arrayInverse
 
 class CyclicGroup:
 

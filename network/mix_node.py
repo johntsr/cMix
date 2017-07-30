@@ -1,5 +1,5 @@
 from network_part import NetworkPart
-from crypto_utils import shuffle, CyclicGroup, ElGamalVector, CyclicGroupDualArray
+from crypto_utils import shuffle, inversePermute, CyclicGroup, ElGamalVector, CyclicGroupDualArray
 from network_utils import Status, Callback, Message
 
 
@@ -16,6 +16,8 @@ class MixNode (NetworkPart):
 
         self.perm = range(0, b)
         shuffle(self.perm)
+        self.permInverse = inversePermute(self.perm)
+
         self.e = CyclicGroup.randomPair()
 
         self.mixForMessageComponents = None
@@ -35,7 +37,7 @@ class MixNode (NetworkPart):
 
     def precompute(self):
         print "compute inverse r elgamal..."
-        self.network.sendToNH(Message(Callback.PRE_FOR_PREPROCESS, self.r.inverse().encrypt(self.sharedKey)))
+        self.network.sendToNH(Message(Callback.PRE_FOR_PREPROCESS, self.r.inverse.encrypt(self.sharedKey)))
 
     def storeSharedKey(self, message):
         self.sharedKey = message.payload
@@ -45,7 +47,7 @@ class MixNode (NetworkPart):
         print "permute and multiply..."
         result = ElGamalVector.multiply(
             message.payload.permute(self.perm),
-            self.s.inverse().encrypt(self.sharedKey)
+            self.s.inverse.encrypt(self.sharedKey)
         )
         if not self.network.isLastNode(self.id):
             self.network.sendToNextNode(self.id, Message(Callback.PRE_FOR_MIX, result))
@@ -55,7 +57,7 @@ class MixNode (NetworkPart):
             self.network.broadcastToNodes(self.id, message)
             self.preForwardPostProcess(message)
 
-            self.network.sendToPreviousNode(self.id, Message(Callback.PRE_RET_MIX, self.s1.inverse().encrypt(self.sharedKey)))
+            self.network.sendToPreviousNode(self.id, Message(Callback.PRE_RET_MIX, self.s1.inverse.encrypt(self.sharedKey)))
         return Status.OK
 
     def preForwardPostProcess(self, message):
@@ -67,8 +69,8 @@ class MixNode (NetworkPart):
     def preReturnMix(self, message):
         print "permute and multiply..."
         result = ElGamalVector.multiply(
-            message.payload.permute(self.perm),
-            self.s1.inverse().encrypt(self.sharedKey)
+            message.payload.permute(self.permInverse),
+            self.s1.inverse.encrypt(self.sharedKey)
         )
         if not self.network.isFirstNode(self.id):
             self.network.sendToPreviousNode(self.id, Message(Callback.PRE_RET_MIX, result))
