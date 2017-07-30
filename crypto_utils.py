@@ -12,12 +12,7 @@ def power(base, exp, modulo=None):
     else:
         return pow(base, exp, modulo)
 
-
-def permute(perm, array):
-    return [array[p] for p in perm]
-
-
-class ElGamalCipher:
+class ElGamal:
 
     def __init__(self, sharedKey=None, value=None):
         self.randomComponent = None
@@ -27,12 +22,61 @@ class ElGamalCipher:
             self.randomComponent = CyclicGroup.exp2group(y)
             self.messageComponent = CyclicGroup.multiply(value, CyclicGroup.exp(sharedKey, y))
 
-    def multiply(self, elGamalCipher):
-        result = ElGamalCipher()
-        result.randomComponent = CyclicGroup.multiply(self.randomComponent, elGamalCipher.randomComponent)
-        result.messageComponent = CyclicGroup.multiply(self.messageComponent, elGamalCipher.messageComponent)
+    @staticmethod
+    def multiply(c1, c2):
+        result = ElGamal()
+        result.randomComponent = CyclicGroup.multiply(c1.randomComponent, c2.randomComponent)
+        result.messageComponent = CyclicGroup.multiply(c1.messageComponent, c2.messageComponent)
         return result
 
+class ElGamalVector:
+
+    def __init__(self, vector, key=None):
+        if key is not None:
+            self.vector = [ElGamal(key, v) for v in vector]
+        else:
+            self.vector = vector
+
+    def permute(self, perm):
+        return ElGamalVector([self.vector[p] for p in perm])
+
+    def messageComponents(self):
+        return CyclicGroupVector(vector=[r.messageComponent for r in self.vector])
+
+    def randomComponents(self):
+        return CyclicGroupVector(vector=[r.randomComponent for r in self.vector])
+
+    @staticmethod
+    def multiply(vector1, vector2):
+        return ElGamalVector(vector=[ElGamal.multiply(v1, v2) for v1, v2 in zip(vector1.vector, vector2.vector)])
+
+class CyclicGroupVector:
+
+    def __init__(self, size=None, vector=None):
+        if vector is None:
+            self.vector = []
+            for i in range(0, size):
+                self.vector.append(CyclicGroup.random())
+        else:
+            self.vector = vector
+
+    def encrypt(self, key):
+        return ElGamalVector(self.vector, key)
+
+    def exp(self, e):
+        return CyclicGroupVector(vector=[CyclicGroup.exp(v, e) for v in self.vector])
+
+class CyclicGroupDualArray:
+
+    def __init__(self, b):
+        self.array = CyclicGroupVector(size=b)
+        self.arrayInverse = CyclicGroupVector(vector=[CyclicGroup.inverse(a) for a in self.array.vector])
+
+    def array(self):
+        return self.array
+
+    def inverse(self):
+        return self.arrayInverse
 
 class CyclicGroup:
 

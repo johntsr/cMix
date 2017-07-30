@@ -1,5 +1,5 @@
 from network_part import NetworkPart
-from crypto_utils import CyclicGroup, shuffle
+from crypto_utils import CyclicGroup, ElGamalVector
 from network_utils import Status, Callback, Message
 
 
@@ -11,7 +11,7 @@ class NetworkHandler (NetworkPart):
         self.associateCallback(Callback.PRE_FOR_PREPROCESS, self.prePreProcess)
         self.nodesNum = 0
         self.d = 1
-        self.R_inverseEG = []
+        self.R_inverseEG = None
 
     def includeNode(self):
         self.nodesNum += 1
@@ -34,7 +34,7 @@ class NetworkHandler (NetworkPart):
         if not self.R_inverseEG:
             self.R_inverseEG = r_inverseEG
         else:
-            self.R_inverseEG = [r1.multiply(r2) for r1, r2 in zip(self.R_inverseEG, r_inverseEG)]
+            self.R_inverseEG = ElGamalVector.multiply(self.R_inverseEG, r_inverseEG)
             if self.isLastCall(code):
                 self.network.sendToFirstNode(Message(Callback.PRE_FOR_MIX, self.R_inverseEG))
         return Status.OK
