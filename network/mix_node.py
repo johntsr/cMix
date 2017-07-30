@@ -1,5 +1,5 @@
 from network_part import NetworkPart
-from crypto_utils import shuffle, CyclicGroup, ElGamalVector, CyclicGroupVector, CyclicGroupDualArray
+from crypto_utils import shuffle, CyclicGroup, ElGamalVector, CyclicGroupDualArray
 from network_utils import Status, Callback, Message
 
 
@@ -50,7 +50,7 @@ class MixNode (NetworkPart):
         if not self.network.isLastNode(self.id):
             self.network.sendToNextNode(self.id, Message(Callback.PRE_FOR_MIX, result))
         else:
-            self.mixForMessageComponents = result.messageComponents
+            self.mixForMessageComponents = result.messageComponents()
             message = Message(Callback.PRE_FOR_POSTPROCESS, result.randomComponents())
             self.network.broadcastToNodes(self.id, message)
             self.preForwardPostProcess(message)
@@ -60,7 +60,8 @@ class MixNode (NetworkPart):
 
     def preForwardPostProcess(self, message):
         print "compute decryption share..."
-        self.decryptionShareFor = message.payload.exp(self.e[0])
+        randomComponents = message.payload
+        self.decryptionShareFor = randomComponents.exp(self.e[0])
         return Status.OK
 
     def preReturnMix(self, message):
@@ -79,5 +80,6 @@ class MixNode (NetworkPart):
         return Status.OK
 
     def preReturnPostProcess(self, message):
-        self.decryptionShareRet = message.payload.exp(self.e[0])
+        randomComponents = message.payload
+        self.decryptionShareRet = randomComponents.exp(self.e[0])
         return Status.OK
