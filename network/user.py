@@ -4,7 +4,7 @@ from key_manager import KeyManager
 from network_utils import Status, Callback, Message
 
 
-class MixNode (NetworkPart):
+class User (NetworkPart):
 
     def __init__(self):
         NetworkPart.__init__(self)
@@ -15,12 +15,14 @@ class MixNode (NetworkPart):
         self.associateCallback(Callback.USER_RESPONSE, self.readResponse)
 
     def setUp(self):
+        print "Let's set up"
         self.network.broadcastToNodes(self.id, Message(Callback.KEY_USER, self.id))
 
     def storeKeyUser(self, message):
-        nodeId = message[0]
-        messageKey = message[1]
-        responseKey = message[2]
+        nodeId = message.payload[0]
+        messageKey = message.payload[1]
+        responseKey = message.payload[2]
+        print "Got: ", message.payload
         self.keyManager.addSeeds(nodeId, (messageKey, responseKey))
         return Status.OK
 

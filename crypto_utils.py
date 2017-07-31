@@ -81,6 +81,9 @@ class CyclicGroupVector:
     def __eq__(self, other):
         return self.vector == other.vector
 
+    def at(self, i):
+        return self.vector[i]
+
     def append(self, element):
         self.vector.append(element)
 
@@ -128,8 +131,11 @@ class CyclicGroup:
         return power(r, e, CyclicGroup.modulo)
 
     @staticmethod
-    def randomExp():
-        return Util.number.getRandomRange(1, CyclicGroup.order)
+    def randomExp(generator=None):
+        if generator is None:
+            return Util.number.getRandomRange(1, CyclicGroup.order)
+        else:
+            return generator.randint(1, CyclicGroup.order)
 
     @staticmethod
     def exp2group(e):

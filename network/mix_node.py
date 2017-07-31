@@ -1,4 +1,4 @@
-from crypto_utils import shuffle, inversePermute, CyclicGroup, ElGamalVector, CyclicGroupDualArray
+from crypto_utils import shuffle, inversePermute, CyclicGroup, ElGamalVector, CyclicGroupDualArray, CyclicGroupVector
 from key_manager import KeyManager
 from network_part import NetworkPart
 from network_utils import Status, Callback, Message
@@ -34,6 +34,8 @@ class MixNode (NetworkPart):
         self.associateCallback(Callback.PRE_RET_MIX, self.preReturnMix, 1)
         self.associateCallback(Callback.PRE_RET_POSTPROCESS, self.preReturnPostProcess, 1)
         self.associateCallback(Callback.KEY_USER, self.sendUserKey)
+        self.associateCallback(Callback.REAL_FOR_PREPROCESS, self.realForPreProcess)
+        self.associateCallback(Callback.REAL_FOR_MIX, self.realForMix)
 
     def computeSecretShare(self):
         print "compute secret key share..."
@@ -95,4 +97,16 @@ class MixNode (NetworkPart):
         self.keyManager.addSeeds(userId)
         payload = self.id, self.keyManager.getSeed(userId, KeyManager.MESSAGE), self.keyManager.getSeed(userId, KeyManager.RESPONSE)
         self.network.sendToUser(userId, Message(Callback.KEY_USER, payload))
+        return Status.OK
+
+    def realForPreProcess(self, message):
+        senders = message.payload
+        keyVector = [self.keyManager.getNextKey(id=sender, type=KeyManager.MESSAGE, inverse=False) for sender in senders]
+        cyclicVector = CyclicGroupVector(vector=keyVector)
+        product = CyclicGroupVector.multiply(cyclicVector, self.r.array)
+        self.network.sendToNH(Message(Callback.REAL_FOR_PREPROCESS, product))
+        return Status.OK
+
+    def realForMix(self, message):
+        print "Got messages: ", message.payload
         return Status.OK

@@ -20,8 +20,12 @@ class KeyManager:
     def getSeed(self, id, type):
         return self.keyStorages[type].getSeed(id)
 
-    def getCombinedKey(self, type, inverse=False):
+    def getCombinedKey(self, type, inverse):
         return self.keyStorages[type].getCombinedKey(inverse)
+
+    def getNextKey(self, id, type, inverse):
+        return self.keyStorages[type].getNextKey(id, inverse)
+
 
 class KeyStorage:
 
@@ -40,10 +44,17 @@ class KeyStorage:
 
     def getCombinedKey(self, inverse):
         product = 1
-        for id, generator in self.generators:
-            product = CyclicGroup.multiply(product, generator.random())
+        for id in self.generators:
+            product = CyclicGroup.multiply(product, self.getNextKey(id, inverse=False))
 
         if inverse:
             return CyclicGroup.inverse(product)
         else:
             return product
+
+    def getNextKey(self, id, inverse):
+        nextKey = CyclicGroup.exp2group(CyclicGroup.randomExp(generator=self.generators[id]))
+        if inverse:
+            return CyclicGroup.inverse(nextKey)
+        else:
+            return nextKey
