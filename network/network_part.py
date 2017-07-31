@@ -15,10 +15,6 @@ class NetworkPart:
     def associateCallback(self, code, callback, timesMax=None):
         self.callbacks[code] = callback
         self.timesCalled[code] = 0
-
-        if timesMax is None:
-            timesMax = 0
-
         self.timesMax[code] = timesMax
 
     def setNetwork(self, network):
@@ -28,7 +24,7 @@ class NetworkPart:
         return self.timesCalled[code] == self.timesMax[code]
 
     def receive(self, message):
-        if self.timesCalled[message.callback] <= self.timesMax[message.callback]:
+        if self.timesMax[message.callback] is None or self.timesCalled[message.callback] < self.timesMax[message.callback]:
             self.timesCalled[message.callback] += 1
             return self.callbacks[message.callback](message)
         else:

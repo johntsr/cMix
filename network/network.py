@@ -23,6 +23,7 @@ class Network:
         user.setNetwork(self)
         self.users[user.id] = user
         self.networkParts[user.id] = user
+        user.setUp()
 
     def __receive(self, recipientId, message):
         code = self.networkParts[recipientId].receive(message)
@@ -66,6 +67,11 @@ class Network:
         for node in self.mixNodes:
             if node.id != id:
                 self.__receive(node.id, message)
+
+    def sendToUser(self, id, message):
+        if self.users[id] is None:
+            raise NetworkError((Status.ERROR, id, "Cannot find user with id = " + id))
+        self.__receive(id, message)
 
     def init(self):
         for mixNode in self.mixNodes:

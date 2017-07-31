@@ -1,6 +1,7 @@
 from network.network import Network
 from network.network_handler import NetworkHandler
 from network.mix_node import MixNode
+import random
 
 def setUpNetwork():
     b = 6
@@ -19,4 +20,10 @@ def setUpNetwork():
 
 
 if __name__ == "__main__":
-    setUpNetwork()
+    # setUpNetwork()
+    g1 = random.Random()
+    g2 = random.Random()
+    g1.seed(3)
+    g2.seed(5)
+    print g1.random()
+    print g2.random()

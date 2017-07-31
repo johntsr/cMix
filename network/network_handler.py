@@ -7,11 +7,12 @@ class NetworkHandler (NetworkPart):
 
     def __init__(self):
         NetworkPart.__init__(self)
-        self.associateCallback(Callback.KEY_SHARE, self.appendKeyShare)
-        self.associateCallback(Callback.PRE_FOR_PREPROCESS, self.prePreProcess)
         self.nodesNum = 0
         self.d = 1
         self.R_inverseEG = None
+
+        self.associateCallback(Callback.KEY_SHARE, self.appendKeyShare)
+        self.associateCallback(Callback.PRE_FOR_PREPROCESS, self.prePreProcess)
 
     def includeNode(self):
         self.nodesNum += 1

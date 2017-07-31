@@ -1,5 +1,6 @@
-from network_part import NetworkPart
 from crypto_utils import shuffle, inversePermute, CyclicGroup, ElGamalVector, CyclicGroupDualArray
+from key_manager import KeyManager
+from network_part import NetworkPart
 from network_utils import Status, Callback, Message
 
 
@@ -25,23 +26,26 @@ class MixNode (NetworkPart):
         self.decryptionShareFor = None
         self.decryptionShareRet = None
 
+        self.keyManager = KeyManager()
+
         self.associateCallback(Callback.KEY_SHARE, self.storeSharedKey, 1)
         self.associateCallback(Callback.PRE_FOR_MIX, self.preForwardMix, 1)
         self.associateCallback(Callback.PRE_FOR_POSTPROCESS, self.preForwardPostProcess, 1)
         self.associateCallback(Callback.PRE_RET_MIX, self.preReturnMix, 1)
         self.associateCallback(Callback.PRE_RET_POSTPROCESS, self.preReturnPostProcess, 1)
+        self.associateCallback(Callback.KEY_USER, self.storeKeyUser)
 
     def computeSecretShare(self):
         print "compute secret key share..."
         self.network.sendToNH(Message(Callback.KEY_SHARE, self.e[1]))
 
-    def precompute(self):
-        print "compute inverse r elgamal..."
-        self.network.sendToNH(Message(Callback.PRE_FOR_PREPROCESS, self.r.inverse.encrypt(self.sharedKey)))
-
     def storeSharedKey(self, message):
         self.sharedKey = message.payload
         return Status.OK
+
+    def precompute(self):
+        print "compute inverse r elgamal..."
+        self.network.sendToNH(Message(Callback.PRE_FOR_PREPROCESS, self.r.inverse.encrypt(self.sharedKey)))
 
     def preForwardMix(self, message):
         print "permute and multiply..."
@@ -84,4 +88,10 @@ class MixNode (NetworkPart):
     def preReturnPostProcess(self, message):
         randomComponents = message.payload
         self.decryptionShareRet = randomComponents.exp(self.e[0])
+        return Status.OK
+
+    def storeKeyUser(self, message):
+        userId = message.payload
+        self.keyManager.addKey(userId)
+        self.network.sendToUser(userId, Message(Callback.KEY_USER, (self.id, self.keyManager.getSeed(userId))))
         return Status.OK
