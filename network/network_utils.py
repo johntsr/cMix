@@ -15,6 +15,10 @@ class Callback:
     PRE_RET_MIX = 4
     PRE_RET_POSTPROCESS = 5
     KEY_USER = 6
+    USER_MESSAGE = 7
+    USER_RESPONSE = 8
+    REAL_FOR_PREPROCESS = 9
+    REAL_FOR_MIX = 10
 
 class Message:
 

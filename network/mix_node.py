@@ -33,7 +33,7 @@ class MixNode (NetworkPart):
         self.associateCallback(Callback.PRE_FOR_POSTPROCESS, self.preForwardPostProcess, 1)
         self.associateCallback(Callback.PRE_RET_MIX, self.preReturnMix, 1)
         self.associateCallback(Callback.PRE_RET_POSTPROCESS, self.preReturnPostProcess, 1)
-        self.associateCallback(Callback.KEY_USER, self.storeKeyUser)
+        self.associateCallback(Callback.KEY_USER, self.sendUserKey)
 
     def computeSecretShare(self):
         print "compute secret key share..."
@@ -90,8 +90,9 @@ class MixNode (NetworkPart):
         self.decryptionShareRet = randomComponents.exp(self.e[0])
         return Status.OK
 
-    def storeKeyUser(self, message):
+    def sendUserKey(self, message):
         userId = message.payload
-        self.keyManager.addKey(userId)
-        self.network.sendToUser(userId, Message(Callback.KEY_USER, (self.id, self.keyManager.getSeed(userId))))
+        self.keyManager.addSeeds(userId)
+        payload = self.id, self.keyManager.getSeed(userId, KeyManager.MESSAGE), self.keyManager.getSeed(userId, KeyManager.RESPONSE)
+        self.network.sendToUser(userId, Message(Callback.KEY_USER, payload))
         return Status.OK

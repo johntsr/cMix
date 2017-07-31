@@ -1,13 +1,11 @@
+from crypto_utils import CyclicGroup
 from network_utils import Status, NetworkError, handleError
 
 
 class NetworkPart:
-    id = 0
-
     def __init__(self):
         self.network = None
-        self.id = NetworkPart.id
-        NetworkPart.id += 1
+        self.id = CyclicGroup.getUniqueId()
         self.callbacks = {}
         self.timesCalled = {}
         self.timesMax = {}
