@@ -81,9 +81,7 @@ class NetworkHandler (NetworkPart):
         senderId = message.payload[0]
         blindMessage = message.payload[1]
         self.usersBuffer.addUser(senderId, blindMessage)
-        print "Found new message"
         if self.usersBuffer.isFull():
-            print "Full, let's send!"
             self.network.broadcastToNodes(self.id, Message(Callback.REAL_FOR_PREPROCESS, self.usersBuffer.getSenders()))
         return Status.OK
 
@@ -91,9 +89,7 @@ class NetworkHandler (NetworkPart):
         code = message.callback
         cyclicVector = message.payload
         self.usersBuffer.scalarMultiply(cyclicVector)
-        print "Multiplied from 1 more node"
         if self.isLastCall(code):
-            print "OK, send to first!"
             self.network.sendToFirstNode(Message(Callback.REAL_FOR_MIX, self.usersBuffer.getBlindMessages()))
         return Status.OK
 
@@ -122,6 +118,7 @@ class NetworkHandler (NetworkPart):
                  range(0, self.mixResult.size())])
 
         if self.isLastCall(code):
-            print "Done!"
-            print self.mixResult.at(0).vector
+            for i in range(0, self.mixResult.size()):
+                userId = self.mixResult.at(i).pop()
+                self.network.sendToUser(userId, Message(Callback.USER_MESSAGE, self.mixResult.at(i)))
         return Status.OK

@@ -74,8 +74,11 @@ class Network:
         self.__receive(id, message)
 
     def init(self):
+        print "Initializing precomputation phase..."
         for mixNode in self.mixNodes:
             mixNode.computeSecretShare()
 
         for mixNode in self.mixNodes:
             mixNode.precompute()
+
+        print "Done precomputations!"
