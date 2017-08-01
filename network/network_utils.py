@@ -19,6 +19,8 @@ class Callback:
     USER_RESPONSE = 8
     REAL_FOR_PREPROCESS = 9
     REAL_FOR_MIX = 10
+    REAL_FOR_MIX_COMMIT = 11
+    REAL_FOR_POSTPROCESS = 12
 
 class Message:
 

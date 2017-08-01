@@ -1,4 +1,5 @@
-from crypto_utils import shuffle, inversePermute, CyclicGroup, ElGamalVector, CyclicGroupDualArray, CyclicGroupVector
+from crypto_utils import shuffle, inversePermute, CyclicGroup, ElGamalVector, CyclicGroupDualArray, CyclicGroupVector, \
+    Vector
 from key_manager import KeyManager
 from network_part import NetworkPart
 from network_utils import Status, Callback, Message
@@ -25,6 +26,7 @@ class MixNode (NetworkPart):
         self.mixRetMessageComponents = None
         self.decryptionShareFor = None
         self.decryptionShareRet = None
+        self.realForMixCommitment = None
 
         self.keyManager = KeyManager()
 
@@ -36,6 +38,7 @@ class MixNode (NetworkPart):
         self.associateCallback(Callback.KEY_USER, self.sendUserKey)
         self.associateCallback(Callback.REAL_FOR_PREPROCESS, self.realForPreProcess)
         self.associateCallback(Callback.REAL_FOR_MIX, self.realForMix)
+        self.associateCallback(Callback.REAL_FOR_MIX_COMMIT, self.realForMixCommit)
 
     def computeSecretShare(self):
         print "compute secret key share..."
@@ -59,6 +62,7 @@ class MixNode (NetworkPart):
             self.network.sendToNextNode(self.id, Message(Callback.PRE_FOR_MIX, result))
         else:
             self.mixForMessageComponents = result.messageComponents()
+            print "mixForMessageComponents -> ", self.mixForMessageComponents.size()
             message = Message(Callback.PRE_FOR_POSTPROCESS, result.randomComponents())
             self.network.broadcastToNodes(self.id, message)
             self.preForwardPostProcess(message)
@@ -69,7 +73,8 @@ class MixNode (NetworkPart):
     def preForwardPostProcess(self, message):
         print "compute decryption share..."
         randomComponents = message.payload
-        self.decryptionShareFor = randomComponents.exp(self.e[0])
+        self.decryptionShareFor = randomComponents.exp(self.e[0]).inverse()
+        print "decryptionShareFor -> ", self.decryptionShareFor.size()
         return Status.OK
 
     def preReturnMix(self, message):
@@ -89,7 +94,7 @@ class MixNode (NetworkPart):
 
     def preReturnPostProcess(self, message):
         randomComponents = message.payload
-        self.decryptionShareRet = randomComponents.exp(self.e[0])
+        self.decryptionShareRet = randomComponents.exp(self.e[0]).inverse()
         return Status.OK
 
     def sendUserKey(self, message):
@@ -108,5 +113,26 @@ class MixNode (NetworkPart):
         return Status.OK
 
     def realForMix(self, message):
-        print "Got messages: ", message.payload
+        print "permute and multiply..."
+        temp = message.payload.permute(self.perm)
+        result = Vector(
+            [CyclicGroupVector.scalarMultiply(temp.at(i), self.s.array.at(i)) for i in range(0, temp.size())])
+        if not self.network.isLastNode(self.id):
+            self.network.sendToNextNode(self.id, Message(Callback.REAL_FOR_MIX, result))
+        else:
+            self.network.broadcastToNodes(self.id, Message(Callback.REAL_FOR_MIX_COMMIT, result))
+
+            print "result -> ", result.size()
+            print "result.at(0) -> ", result.at(0).size()
+
+            temp = CyclicGroupVector.multiply(self.decryptionShareFor, self.mixForMessageComponents)
+            result = Vector(
+                [CyclicGroupVector.scalarMultiply(result.at(i), temp.at(i)) for i in range(0, result.size())])
+            self.network.sendToNH(Message(Callback.REAL_FOR_POSTPROCESS, (True, result)))
+        return Status.OK
+
+    def realForMixCommit(self, message):
+        self.realForMixCommitment = message.payload
+        print "commitment = ", self.realForMixCommitment
+        self.network.sendToNH(Message(Callback.REAL_FOR_POSTPROCESS, (False, self.decryptionShareFor)))
         return Status.OK

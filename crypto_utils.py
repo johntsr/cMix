@@ -43,19 +43,42 @@ class ElGamal:
         return result
 
 
-class ElGamalVector:
+class Vector:
 
-    def __init__(self, vector, key=None):
-        if key is not None:
-            self.vector = [ElGamal(key, v) for v in vector]
-        else:
-            self.vector = vector
+    def __init__(self, vector):
+        self.vector = vector
+        self.multiplyFun = None
+        self.scalarMultiplyFun = None
 
     def __eq__(self, other):
         return self.vector == other.vector
 
+    def size(self):
+        return len(self.vector)
+
+    def at(self, i):
+        return self.vector[i]
+
+    def append(self, element):
+        self.vector.append(element)
+
     def permute(self, perm):
-        return ElGamalVector([self.vector[p] for p in perm])
+        return Vector([self.vector[p] for p in perm])
+
+    @staticmethod
+    def multiply__(vector1, vector2, multiplyFunction):
+        return [multiplyFunction(v1, v2) for v1, v2 in zip(vector1.vector, vector2.vector)]
+
+
+class ElGamalVector(Vector):
+
+    def __init__(self, vector, key=None):
+        Vector.__init__(self, vector)
+        if key is not None:
+            self.vector = [ElGamal(key, v) for v in vector]
+
+    def permute(self, perm):
+        return ElGamalVector(vector=Vector.permute(self, perm).vector)
 
     def messageComponents(self):
         return CyclicGroupVector(vector=[r.messageComponent for r in self.vector])
@@ -65,27 +88,23 @@ class ElGamalVector:
 
     @staticmethod
     def multiply(vector1, vector2):
-        return ElGamalVector(vector=[ElGamal.multiply(v1, v2) for v1, v2 in zip(vector1.vector, vector2.vector)])
+        return ElGamalVector(vector=Vector.multiply__(vector1, vector2, ElGamal.multiply))
 
 
-class CyclicGroupVector:
+class CyclicGroupVector(Vector):
 
     def __init__(self, size=None, vector=None):
+        Vector.__init__(self, vector)
         if vector is None:
             self.vector = []
             for i in range(0, size):
                 self.vector.append(CyclicGroup.random())
-        else:
-            self.vector = vector
 
-    def __eq__(self, other):
-        return self.vector == other.vector
+    def permute(self, perm):
+        return CyclicGroupVector(vector=Vector.permute(self, perm).vector)
 
-    def at(self, i):
-        return self.vector[i]
-
-    def append(self, element):
-        self.vector.append(element)
+    def inverse(self):
+        return CyclicGroupVector(vector=[CyclicGroup.inverse(v) for v in self.vector])
 
     def pop(self):
         result = self.vector[-1]
@@ -104,7 +123,7 @@ class CyclicGroupVector:
 
     @staticmethod
     def multiply(vector1, vector2):
-        return CyclicGroupVector(vector=[CyclicGroup.multiply(v1, v2) for v1, v2 in zip(vector1.vector, vector2.vector)])
+        return CyclicGroupVector(vector=Vector.multiply__(vector1, vector2, CyclicGroup.multiply))
 
 
 class CyclicGroupDualArray:

@@ -29,6 +29,7 @@ class User (NetworkPart):
     def sendMessage(self, userId, messageVector):
         combinedKey = self.keyManager.getCombinedKey(type=KeyManager.MESSAGE, inverse=True)
         messageVector.append(userId)
+        print "Will send: ", messageVector.vector
         blindMessage = CyclicGroupVector.scalarMultiply(messageVector, combinedKey)
         payload = self.id, blindMessage
         self.network.sendToNH(Message(Callback.USER_MESSAGE, payload))
