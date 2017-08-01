@@ -1,4 +1,4 @@
-from crypto_utils import CyclicGroupVector
+from crypto_utils import CyclicGroupVector, CyclicGroup
 from network_part import NetworkPart
 from key_manager import KeyManager
 from network_utils import Status, Callback, Message
@@ -27,19 +27,39 @@ class User (NetworkPart):
 
     def sendMessage(self, userId, messageVector):
         combinedKey = self.keyManager.getCombinedKey(type=KeyManager.MESSAGE, inverse=True)
+        messageVector.append(self.id)
         messageVector.append(userId)
-        print "Will send: "
+        print "Will send message: "
         print messageVector.vector
         blindMessage = CyclicGroupVector.scalarMultiply(messageVector, combinedKey)
         payload = self.id, blindMessage
         self.network.sendToNH(Message(Callback.USER_MESSAGE, payload))
 
     def readMessage(self, message):
-        print "User "
+
+        responseVector = message.payload
+        senderId = responseVector.pop()
+        print "\n\nUser "
         print self.id
-        print "Got:"
-        print message.payload.vector, "\n\n"
+        print "Got Message:"
+        print responseVector.vector
+        print "From user:"
+        print senderId
+
+        blindResponse = CyclicGroupVector(vector=[CyclicGroup.random()])
+        print "Will respond: "
+        print blindResponse.vector
+        payload = self.id, blindResponse
+        self.network.sendToNH(Message(Callback.USER_RESPONSE, payload))
+
         return Status.OK
 
     def readResponse(self, message):
+
+        responseVector = CyclicGroupVector.scalarMultiply(message.payload, self.keyManager.getCombinedKey(type=KeyManager.RESPONSE, inverse=True))
+        print "\n\nUser "
+        print self.id
+        print "Got Response:"
+        print responseVector.vector
+
         return Status.OK

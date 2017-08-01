@@ -41,6 +41,9 @@ class Network:
     def sendToFirstNode(self, message):
         self.__receive(self.mixNodes[0].id, message)
 
+    def sendToLastNode(self, message):
+        self.__receive(self.mixNodes[-1].id, message)
+
     def isLastNode(self, id):
         return self.mixNodes[-1].id == id
 

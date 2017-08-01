@@ -1,5 +1,6 @@
 import random
-from crypto_utils import CyclicGroup
+from crypto_utils import CyclicGroup, CyclicGroupVector
+
 
 class KeyManager:
 
@@ -25,6 +26,9 @@ class KeyManager:
 
     def getNextKey(self, id, type, inverse):
         return self.keyStorages[type].getNextKey(id, inverse)
+
+    def getNextKeys(self, ids, type, inverse):
+        return CyclicGroupVector(vector=[self.getNextKey(id, type, inverse) for id in ids])
 
 
 class KeyStorage:

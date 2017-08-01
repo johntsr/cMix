@@ -23,7 +23,9 @@ def setUpNetwork():
 
 if __name__ == "__main__":
     network = setUpNetwork()
-    for i in range(0, b):
-        user = User()
+    users = [User() for i in range(0, b)]
+    for user in users:
         network.addUser(user)
-        user.sendMessage(user.id, CyclicGroupVector(size=1))
+
+    for i in range(0, b):
+        users[i].sendMessage(users[(i+1) % len(users)].id, CyclicGroupVector(size=1))

@@ -27,6 +27,8 @@ class MixNode (NetworkPart):
         self.decryptionShareFor = None
         self.decryptionShareRet = None
         self.realForMixCommitment = None
+        self.realRetMixCommitment = None
+        self.senders = None
 
         self.keyManager = KeyManager()
 
@@ -39,6 +41,17 @@ class MixNode (NetworkPart):
         self.associateCallback(Callback.REAL_FOR_PREPROCESS, self.realForPreProcess)
         self.associateCallback(Callback.REAL_FOR_MIX, self.realForMix)
         self.associateCallback(Callback.REAL_FOR_MIX_COMMIT, self.realForMixCommit)
+        self.associateCallback(Callback.REAL_RET_MIX, self.realRetMix)
+        self.associateCallback(Callback.REAL_RET_MIX_COMMIT, self.realRetMixCommit)
+
+    def reset(self):
+        self.mixForMessageComponents = None
+        self.mixRetMessageComponents = None
+        self.decryptionShareFor = None
+        self.decryptionShareRet = None
+        self.realForMixCommitment = None
+        self.realRetMixCommitment = None
+        self.senders = None
 
     def computeSecretShare(self):
         self.network.sendToNH(Message(Callback.KEY_SHARE, self.e[1]))
@@ -88,6 +101,7 @@ class MixNode (NetworkPart):
     def preReturnPostProcess(self, message):
         randomComponents = message.payload
         self.decryptionShareRet = randomComponents.exp(self.e[0]).inverse()
+        print self.decryptionShareRet
         return Status.OK
 
     def sendUserKey(self, message):
@@ -98,9 +112,8 @@ class MixNode (NetworkPart):
         return Status.OK
 
     def realForPreProcess(self, message):
-        senders = message.payload
-        keyVector = [self.keyManager.getNextKey(id=sender, type=KeyManager.MESSAGE, inverse=False) for sender in senders]
-        cyclicVector = CyclicGroupVector(vector=keyVector)
+        self.senders = message.payload
+        cyclicVector = self.keyManager.getNextKeys(ids=self.senders, type=KeyManager.MESSAGE, inverse=False)
         product = CyclicGroupVector.multiply(cyclicVector, self.r.array)
         self.network.sendToNH(Message(Callback.REAL_FOR_PREPROCESS, product))
         return Status.OK
@@ -108,7 +121,7 @@ class MixNode (NetworkPart):
     def realForMix(self, message):
         temp = message.payload.permute(self.perm)
         result = Vector(
-            [CyclicGroupVector.scalarMultiply(temp.at(i), self.s.array.at(i)) for i in range(0, temp.size())])
+            [CyclicGroupVector.scalarMultiply(temp.at(i), self.s.array.at(i)) for i in range(0, self.b)])
         if not self.network.isLastNode(self.id):
             self.network.sendToNextNode(self.id, Message(Callback.REAL_FOR_MIX, result))
         else:
@@ -116,11 +129,38 @@ class MixNode (NetworkPart):
 
             temp = CyclicGroupVector.multiply(self.decryptionShareFor, self.mixForMessageComponents)
             result = Vector(
-                [CyclicGroupVector.scalarMultiply(result.at(i), temp.at(i)) for i in range(0, result.size())])
+                [CyclicGroupVector.scalarMultiply(result.at(i), temp.at(i)) for i in range(0, self.b)])
             self.network.sendToNH(Message(Callback.REAL_FOR_POSTPROCESS, (True, result)))
         return Status.OK
 
     def realForMixCommit(self, message):
         self.realForMixCommitment = message.payload
         self.network.sendToNH(Message(Callback.REAL_FOR_POSTPROCESS, (False, self.decryptionShareFor)))
+        return Status.OK
+
+    def realRetMix(self, message):
+        temp = message.payload.permute(self.permInverse)
+        result = Vector(
+            [CyclicGroupVector.scalarMultiply(temp.at(i), self.s1.array.at(i)) for i in range(0, self.b)])
+        if not self.network.isFirstNode(self.id):
+            self.network.sendToPreviousNode(self.id, Message(Callback.REAL_RET_MIX, result))
+        else:
+            self.network.broadcastToNodes(self.id, Message(Callback.REAL_RET_MIX_COMMIT, result))
+
+            temp = CyclicGroupVector.multiply(self.decryptionShareRet, self.mixRetMessageComponents)
+            temp = CyclicGroupVector.multiply(temp,
+                                              self.keyManager.getNextKeys(ids=self.senders, type=KeyManager.RESPONSE,
+                                                                          inverse=False))
+            result = Vector(
+                [CyclicGroupVector.scalarMultiply(result.at(i), temp.at(i)) for i in range(0, self.b)])
+            self.network.sendToNH(Message(Callback.REAL_RET_POSTPROCESS, (True, result)))
+        return Status.OK
+
+    def realRetMixCommit(self, message):
+        self.realRetMixCommitment = message.payload
+        result = CyclicGroupVector.multiply(self.decryptionShareRet,
+                                            self.keyManager.getNextKeys(ids=self.senders, type=KeyManager.RESPONSE,
+                                                                        inverse=False))
+        self.network.sendToNH(Message(Callback.REAL_RET_POSTPROCESS, (False, result)))
+        self.reset()
         return Status.OK

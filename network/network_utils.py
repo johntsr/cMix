@@ -21,6 +21,9 @@ class Callback:
     REAL_FOR_MIX = 10
     REAL_FOR_MIX_COMMIT = 11
     REAL_FOR_POSTPROCESS = 12
+    REAL_RET_MIX = 13
+    REAL_RET_MIX_COMMIT = 14
+    REAL_RET_POSTPROCESS = 15
 
 class Message:
 
