@@ -52,12 +52,7 @@ class NetworkHandler (NetworkPart):
 
         self.mixResult = {'FOR': None, 'RET': None}
         self.sendCallback = {'FOR': Callback.USER_MESSAGE, 'RET': Callback.USER_RESPONSE}
-        # self.mixForResult = None
-        # self.mixRetResult = None
-
         self.decryptionShares = {'FOR': None, 'RET': None}
-        # self.decryptionSharesFor = None
-        # self.decryptionSharesRet = None
 
         self.associateCallback(Callback.KEY_SHARE, self.appendKeyShare)
         self.associateCallback(Callback.PRE_FOR_PREPROCESS, self.preForPreProcess)
@@ -84,10 +79,6 @@ class NetworkHandler (NetworkPart):
         self.receiversBuffer = UsersBuffer(self.b)
 
         self.mixResult = {'FOR': None, 'RET': None}
-        # self.mixForResult = None
-        # self.mixRetResult = None
-        # self.decryptionSharesFor = None
-        # self.decryptionSharesRet = None
         self.decryptionShares = {'FOR': None, 'RET': None}
 
     def appendKeyShare(self, message):
@@ -144,7 +135,7 @@ class NetworkHandler (NetworkPart):
 
         def cleanUp():
             self.reset()
-            
+
         return self.__realPostProcess(message=message, path='RET', getUsersCallback=getUsers, cleanUp=cleanUp)
 
     def __appendDecrShare(self, payload, path):
