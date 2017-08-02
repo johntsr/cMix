@@ -50,10 +50,14 @@ class NetworkHandler (NetworkPart):
         self.sendersBuffer = UsersBuffer(self.b)
         self.receiversBuffer = UsersBuffer(self.b)
 
-        self.mixForResult = None
-        self.decryptionSharesFor = None
-        self.mixRetResult = None
-        self.decryptionSharesRet = None
+        self.mixResult = {'FOR': None, 'RET': None}
+        self.sendCallback = {'FOR': Callback.USER_MESSAGE, 'RET': Callback.USER_RESPONSE}
+        # self.mixForResult = None
+        # self.mixRetResult = None
+
+        self.decryptionShares = {'FOR': None, 'RET': None}
+        # self.decryptionSharesFor = None
+        # self.decryptionSharesRet = None
 
         self.associateCallback(Callback.KEY_SHARE, self.appendKeyShare)
         self.associateCallback(Callback.PRE_FOR_PREPROCESS, self.preForPreProcess)
@@ -79,10 +83,12 @@ class NetworkHandler (NetworkPart):
         self.sendersBuffer = UsersBuffer(self.b)
         self.receiversBuffer = UsersBuffer(self.b)
 
-        self.mixForResult = None
-        self.decryptionSharesFor = None
-        self.mixRetResult = None
-        self.decryptionSharesRet = None
+        self.mixResult = {'FOR': None, 'RET': None}
+        # self.mixForResult = None
+        # self.mixRetResult = None
+        # self.decryptionSharesFor = None
+        # self.decryptionSharesRet = None
+        self.decryptionShares = {'FOR': None, 'RET': None}
 
     def appendKeyShare(self, message):
         share = message.payload
@@ -121,46 +127,55 @@ class NetworkHandler (NetworkPart):
             self.network.sendToFirstNode(Message(Callback.REAL_FOR_MIX, self.sendersBuffer.getBlindMessages()))
         return Status.OK
 
-    def __appendDecrShareFor(self, payload):
-        if self.decryptionSharesFor is None:
-            self.decryptionSharesFor = payload
-        else:
-            if self.mixForResult is None:
-                self.decryptionSharesFor = CyclicGroupVector.multiply(self.decryptionSharesFor, payload)
-            else:
-                self.decryptionSharesFor = payload
-
-    def __appendDecrShareRet(self, payload):
-        if self.decryptionSharesRet is None:
-            self.decryptionSharesRet = payload
-        else:
-            if self.mixRetResult is None:
-                self.decryptionSharesRet = CyclicGroupVector.multiply(self.decryptionSharesRet, payload)
-            else:
-                self.decryptionSharesRet = payload
-
     def realForPostProcess(self, message):
+        def getUsers():
+            users = [self.mixResult['FOR'].at(i).pop() for i in range(0, self.b)]
+            self.receiversBuffer.copyUsers(users)
+            return users
+
+        def cleanUp():
+            pass
+
+        return self.__realPostProcess(message=message, path='FOR', getUsersCallback=getUsers, cleanUp=cleanUp)
+
+    def realRetPostProcess(self, message):
+        def getUsers():
+            return self.sendersBuffer.getUsers()
+
+        def cleanUp():
+            self.reset()
+            
+        return self.__realPostProcess(message=message, path='RET', getUsersCallback=getUsers, cleanUp=cleanUp)
+
+    def __appendDecrShare(self, payload, path):
+        if self.decryptionShares[path] is None:
+            self.decryptionShares[path] = payload
+        else:
+            if self.mixResult[path] is None:
+                self.decryptionShares[path] = CyclicGroupVector.multiply(self.decryptionShares[path], payload)
+            else:
+                self.decryptionShares[path] = payload
+
+    def __realPostProcess(self, message, path, getUsersCallback, cleanUp):
         code = message.callback
         isLastNode = message.payload[0]
         payload = message.payload[1]
 
         if isLastNode:
-            self.mixForResult = payload
+            self.mixResult[path] = payload
         else:
-            self.__appendDecrShareFor(payload)
+            self.__appendDecrShare(payload, path)
 
-        if self.mixForResult is not None and self.decryptionSharesFor is not None:
-            self.mixForResult = Vector(
-                [CyclicGroupVector.scalarMultiply(self.mixForResult.at(i), self.decryptionSharesFor.at(i)) for i in
+        if self.mixResult[path] is not None and self.decryptionShares[path] is not None:
+            self.mixResult[path] = Vector(
+                [CyclicGroupVector.scalarMultiply(self.mixResult[path].at(i), self.decryptionShares[path].at(i)) for i in
                  range(0, self.b)])
 
         if self.isLastCall(code):
-
-            users = [self.mixForResult.at(i).pop() for i in range(0, self.b)]
-            self.receiversBuffer.copyUsers(users)
+            users = getUsersCallback()
             for i in range(0, self.b):
-                userId = users[i]
-                self.network.sendToUser(userId, Message(Callback.USER_MESSAGE, self.mixForResult.at(i)))
+                self.network.sendToUser(users[i], Message(self.sendCallback[path], self.mixResult[path].at(i)))
+            cleanUp()
         return Status.OK
 
     def getUserResponse(self, message):
@@ -171,24 +186,3 @@ class NetworkHandler (NetworkPart):
             self.network.sendToLastNode(Message(Callback.REAL_RET_MIX, self.receiversBuffer.getBlindMessages()))
         return Status.OK
 
-    def realRetPostProcess(self, message):
-        code = message.callback
-        isFirstNode = message.payload[0]
-        payload = message.payload[1]
-
-        if isFirstNode:
-            self.mixRetResult = payload
-        else:
-            self.__appendDecrShareRet(payload)
-
-        if self.mixRetResult is not None and self.decryptionSharesRet is not None:
-            self.mixRetResult = Vector(
-                [CyclicGroupVector.scalarMultiply(self.mixRetResult.at(i), self.decryptionSharesRet.at(i)) for i in
-                 range(0, self.b)])
-
-        if self.isLastCall(code):
-            for i in range(0, self.b):
-                userId = self.sendersBuffer.getUsers()[i]
-                self.network.sendToUser(userId, Message(Callback.USER_RESPONSE, self.mixRetResult.at(i)))
-            self.reset()
-        return Status.OK
