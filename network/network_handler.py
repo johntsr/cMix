@@ -15,8 +15,9 @@ class UsersBuffer:
         self.messages = [None] * (len(self.users))
 
     def addUser(self, userId, blindMessage):
-        self.users.append(userId)
-        self.messages.append(blindMessage)
+        if not self.isFull():
+            self.users.append(userId)
+            self.messages.append(blindMessage)
 
     def addUserMessage(self, userId, blindMessage):
         for i in range(0, len(self.users)):
@@ -66,13 +67,14 @@ class NetworkHandler (NetworkPart):
         self.nodesNum += 1
         self.timesMax[Callback.KEY_SHARE] = self.nodesNum
         self.timesMax[Callback.PRE_FOR_PREPROCESS] = self.nodesNum
-        self.reset()
-
-    def reset(self):
         self.timesMax[Callback.REAL_FOR_PREPROCESS] = self.nodesNum
         self.timesMax[Callback.REAL_FOR_POSTPROCESS] = self.nodesNum
-        self.timesMax[Callback.REAL_FOR_POSTPROCESS] = self.nodesNum
         self.timesMax[Callback.REAL_RET_POSTPROCESS] = self.nodesNum
+
+    def reset(self):
+        self.timesCalled[Callback.REAL_FOR_PREPROCESS] = 0
+        self.timesCalled[Callback.REAL_FOR_POSTPROCESS] = 0
+        self.timesCalled[Callback.REAL_RET_POSTPROCESS] = 0
 
         self.sendersBuffer = UsersBuffer(self.b)
         self.receiversBuffer = UsersBuffer(self.b)

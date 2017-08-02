@@ -34,8 +34,3 @@ class NetworkPart:
         except NetworkError as error:
             handleError(error)
 
-    # def send(self, recipientId, message):
-    #     try:
-    #         self.network.send(recipientId, message)
-    #     except NetworkError as error:
-    #         handleError(error)

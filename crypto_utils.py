@@ -65,6 +65,9 @@ class Vector:
     def permute(self, perm):
         return Vector([self.vector[p] for p in perm])
 
+    def copyVector(self):
+        return list(self.vector)
+
     @staticmethod
     def multiply__(vector1, vector2, multiplyFunction):
         return [multiplyFunction(v1, v2) for v1, v2 in zip(vector1.vector, vector2.vector)]
@@ -125,6 +128,9 @@ class CyclicGroupVector(Vector):
     def multiply(vector1, vector2):
         return CyclicGroupVector(vector=Vector.multiply__(vector1, vector2, CyclicGroup.multiply))
 
+    @staticmethod
+    def random():
+        return CyclicGroupVector(size=1)
 
 class CyclicGroupDualArray:
 

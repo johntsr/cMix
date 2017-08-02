@@ -23,7 +23,7 @@ def setUpNetwork():
 
 if __name__ == "__main__":
     network = setUpNetwork()
-    users = [User() for i in range(0, b)]
+    users = [User() for _ in range(0, b)]
     for user in users:
         network.addUser(user)
 

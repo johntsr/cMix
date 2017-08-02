@@ -44,15 +44,6 @@ class MixNode (NetworkPart):
         self.associateCallback(Callback.REAL_RET_MIX, self.realRetMix)
         self.associateCallback(Callback.REAL_RET_MIX_COMMIT, self.realRetMixCommit)
 
-    def reset(self):
-        self.mixForMessageComponents = None
-        self.mixRetMessageComponents = None
-        self.decryptionShareFor = None
-        self.decryptionShareRet = None
-        self.realForMixCommitment = None
-        self.realRetMixCommitment = None
-        self.senders = None
-
     def computeSecretShare(self):
         self.network.sendToNH(Message(Callback.KEY_SHARE, self.e[1]))
 
@@ -101,7 +92,6 @@ class MixNode (NetworkPart):
     def preReturnPostProcess(self, message):
         randomComponents = message.payload
         self.decryptionShareRet = randomComponents.exp(self.e[0]).inverse()
-        print self.decryptionShareRet
         return Status.OK
 
     def sendUserKey(self, message):
@@ -162,5 +152,4 @@ class MixNode (NetworkPart):
                                             self.keyManager.getNextKeys(ids=self.senders, type=KeyManager.RESPONSE,
                                                                         inverse=False))
         self.network.sendToNH(Message(Callback.REAL_RET_POSTPROCESS, (False, result)))
-        self.reset()
         return Status.OK
