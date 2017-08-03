@@ -13,21 +13,26 @@ class MixNode (NetworkPart):
         self.b = b
 
         self.r = CyclicGroupDualArray(self.b)
-        self.s = CyclicGroupDualArray(self.b)
-        self.s1 = CyclicGroupDualArray(self.b)
+        s = CyclicGroupDualArray(self.b)
+        s1 = CyclicGroupDualArray(self.b)
+        self.S = {'FOR': s, 'RET': s1}
 
-        self.perm = range(0, b)
-        shuffle(self.perm)
-        self.permInverse = inversePermute(self.perm)
+        perm = range(0, b)
+        shuffle(perm)
+        permInverse = inversePermute(perm)
+        self.permutation = {'FOR': perm, 'RET': permInverse}
 
         self.e = CyclicGroup.randomPair()
 
-        self.mixForMessageComponents = None
-        self.mixRetMessageComponents = None
-        self.decryptionShareFor = None
-        self.decryptionShareRet = None
-        self.realForMixCommitment = None
-        self.realRetMixCommitment = None
+        self.mixMessageComponents = {'FOR': None, 'RET': None}
+        self.preMixCallback = {'FOR': Callback.PRE_FOR_MIX, 'RET': Callback.PRE_RET_MIX}
+        self.realMixCallback = {'FOR': Callback.REAL_FOR_MIX, 'RET': Callback.REAL_RET_MIX}
+        self.mixCommitCallback = {'FOR': Callback.REAL_FOR_MIX_COMMIT, 'RET': Callback.REAL_RET_MIX_COMMIT}
+        self.prePostProcessCallback = {'FOR': Callback.PRE_FOR_POSTPROCESS, 'RET': Callback.PRE_RET_POSTPROCESS}
+        self.realPostProcessCallback = {'FOR': Callback.REAL_FOR_POSTPROCESS, 'RET': Callback.REAL_RET_POSTPROCESS}
+
+        self.decryptionShare = {'FOR': None, 'RET': None}
+        self.realMixCommitment = {'FOR': None, 'RET': None}
         self.senders = None
 
         self.keyManager = KeyManager()
@@ -55,44 +60,20 @@ class MixNode (NetworkPart):
         self.network.sendToNH(Message(Callback.PRE_FOR_PREPROCESS, self.r.inverse.encrypt(self.sharedKey)))
 
     def preForwardMix(self, message):
-        result = ElGamalVector.multiply(
-            message.payload.permute(self.perm),
-            self.s.inverse.encrypt(self.sharedKey)
-        )
-        if not self.network.isLastNode(self.id):
-            self.network.sendToNextNode(self.id, Message(Callback.PRE_FOR_MIX, result))
-        else:
-            self.mixForMessageComponents = result.messageComponents()
-            message = Message(Callback.PRE_FOR_POSTPROCESS, result.randomComponents())
-            self.network.broadcastToNodes(self.id, message)
-            self.preForwardPostProcess(message)
-
-            self.network.sendToPreviousNode(self.id, Message(Callback.PRE_RET_MIX, self.s1.inverse.encrypt(self.sharedKey)))
-        return Status.OK
+        status = self.__preMix(message=message, path='FOR')
+        if self.__finalNode('FOR'):
+            self.network.sendToPreviousNode(self.id, Message(Callback.PRE_RET_MIX,
+                                                             self.S['RET'].inverse.encrypt(self.sharedKey)))
+        return status
 
     def preForwardPostProcess(self, message):
-        randomComponents = message.payload
-        self.decryptionShareFor = randomComponents.exp(self.e[0]).inverse()
-        return Status.OK
+        return self.__prePostProcess(message=message, path='FOR')
 
     def preReturnMix(self, message):
-        result = ElGamalVector.multiply(
-            message.payload.permute(self.permInverse),
-            self.s1.inverse.encrypt(self.sharedKey)
-        )
-        if not self.network.isFirstNode(self.id):
-            self.network.sendToPreviousNode(self.id, Message(Callback.PRE_RET_MIX, result))
-        else:
-            self.mixRetMessageComponents = result.messageComponents()
-            message = Message(Callback.PRE_RET_POSTPROCESS, result.randomComponents())
-            self.network.broadcastToNodes(self.id, message)
-            self.preReturnPostProcess(message)
-        return Status.OK
+        return self.__preMix(message=message, path='RET')
 
     def preReturnPostProcess(self, message):
-        randomComponents = message.payload
-        self.decryptionShareRet = randomComponents.exp(self.e[0]).inverse()
-        return Status.OK
+        return self.__prePostProcess(message=message, path='RET')
 
     def sendUserKey(self, message):
         userId = message.payload
@@ -109,47 +90,82 @@ class MixNode (NetworkPart):
         return Status.OK
 
     def realForMix(self, message):
-        temp = message.payload.permute(self.perm)
-        result = Vector(
-            [CyclicGroupVector.scalarMultiply(temp.at(i), self.s.array.at(i)) for i in range(0, self.b)])
-        if not self.network.isLastNode(self.id):
-            self.network.sendToNextNode(self.id, Message(Callback.REAL_FOR_MIX, result))
-        else:
-            self.network.broadcastToNodes(self.id, Message(Callback.REAL_FOR_MIX_COMMIT, result))
-
-            temp = CyclicGroupVector.multiply(self.decryptionShareFor, self.mixForMessageComponents)
-            result = Vector(
-                [CyclicGroupVector.scalarMultiply(result.at(i), temp.at(i)) for i in range(0, self.b)])
-            self.network.sendToNH(Message(Callback.REAL_FOR_POSTPROCESS, (True, result)))
-        return Status.OK
-
-    def realForMixCommit(self, message):
-        self.realForMixCommitment = message.payload
-        self.network.sendToNH(Message(Callback.REAL_FOR_POSTPROCESS, (False, self.decryptionShareFor)))
-        return Status.OK
+        return self.__realMix(message=message, path='FOR')
 
     def realRetMix(self, message):
-        temp = message.payload.permute(self.permInverse)
-        result = Vector(
-            [CyclicGroupVector.scalarMultiply(temp.at(i), self.s1.array.at(i)) for i in range(0, self.b)])
-        if not self.network.isFirstNode(self.id):
-            self.network.sendToPreviousNode(self.id, Message(Callback.REAL_RET_MIX, result))
-        else:
-            self.network.broadcastToNodes(self.id, Message(Callback.REAL_RET_MIX_COMMIT, result))
+        def tempProcess(temp):
+            return self.__returnPathKeyBlinding(temp)
+        return self.__realMix(message=message, path='RET', tempProcess=tempProcess)
 
-            temp = CyclicGroupVector.multiply(self.decryptionShareRet, self.mixRetMessageComponents)
-            temp = CyclicGroupVector.multiply(temp,
-                                              self.keyManager.getNextKeys(ids=self.senders, type=KeyManager.RESPONSE,
-                                                                          inverse=False))
-            result = Vector(
-                [CyclicGroupVector.scalarMultiply(result.at(i), temp.at(i)) for i in range(0, self.b)])
-            self.network.sendToNH(Message(Callback.REAL_RET_POSTPROCESS, (True, result)))
-        return Status.OK
+    def realForMixCommit(self, message):
+        def resultProcess(decrShare):
+            return decrShare
+        return self.__realMixCommit(message=message, path='FOR', resultProcess=resultProcess)
 
     def realRetMixCommit(self, message):
-        self.realRetMixCommitment = message.payload
-        result = CyclicGroupVector.multiply(self.decryptionShareRet,
-                                            self.keyManager.getNextKeys(ids=self.senders, type=KeyManager.RESPONSE,
-                                                                        inverse=False))
-        self.network.sendToNH(Message(Callback.REAL_RET_POSTPROCESS, (False, result)))
+        def resultProcess(decrShare):
+            return self.__returnPathKeyBlinding(decrShare)
+        return self.__realMixCommit(message=message, path='RET', resultProcess=resultProcess)
+
+    def __preMix(self, message, path):
+        result = ElGamalVector.multiply(
+            message.payload.permute(self.permutation[path]),
+            self.S[path].inverse.encrypt(self.sharedKey)
+        )
+        if not self.__finalNode(path):
+            self.__nextToNode(path, Message(self.preMixCallback[path], result))
+        else:
+            self.mixMessageComponents[path] = result.messageComponents()
+            message = Message(self.prePostProcessCallback[path], result.randomComponents())
+            self.network.broadcastToNodes(self.id, message)
+            self.receive(message)
         return Status.OK
+
+    def __prePostProcess(self, message, path):
+        randomComponents = message.payload
+        self.decryptionShare[path] = randomComponents.exp(self.e[0]).inverse()
+        return Status.OK
+
+    def __returnPathKeyBlinding(self, temp):
+        return CyclicGroupVector.multiply(temp,
+                                          self.keyManager.getNextKeys(ids=self.senders, type=KeyManager.RESPONSE,
+                                                                      inverse=False))
+
+    def __realMixCommit(self, message, path, resultProcess):
+        self.realMixCommitment[path] = message.payload
+        result = resultProcess(self.decryptionShare[path])
+        self.network.sendToNH(Message(self.realPostProcessCallback[path], (False, result)))
+        return Status.OK
+
+    def __realMix(self, message, path, tempProcess=None):
+        temp = message.payload.permute(self.permutation[path])
+        result = Vector(
+            [CyclicGroupVector.scalarMultiply(temp.at(i), self.S[path].array.at(i)) for i in range(0, self.b)])
+        if not self.__finalNode(path):
+            self.__nextToNode(path, Message(self.realMixCallback[path], result))
+        else:
+            self.network.broadcastToNodes(self.id, Message(self.mixCommitCallback[path], result))
+            temp = CyclicGroupVector.multiply(self.decryptionShare[path], self.mixMessageComponents[path])
+            if tempProcess is not None:
+                temp = tempProcess(temp)
+
+            result = Vector(
+                [CyclicGroupVector.scalarMultiply(result.at(i), temp.at(i)) for i in range(0, self.b)])
+            self.network.sendToNH(Message(self.realPostProcessCallback[path], (True, result)))
+        return Status.OK
+
+    def __nextToNode(self, path, message):
+        if path == 'FOR':
+            return self.network.sendToNextNode(self.id, message)
+        elif path == 'RET':
+            return self.network.sendToPreviousNode(self.id, message)
+        else:
+            raise Exception("Wrong path!")
+
+    def __finalNode(self, path):
+        if path == 'FOR':
+            return self.network.isLastNode(self.id)
+        elif path == 'RET':
+            return self.network.isFirstNode(self.id)
+        else:
+            raise Exception("Wrong path!")

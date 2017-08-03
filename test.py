@@ -84,6 +84,7 @@ class TestcMix(unittest.TestCase):
             cls.network.addUser(user)
 
     def tearDown(self):
+        self.network.networkHandler.reset()
         for user in self.users:
             user.setResponseGenerator(randomResponse)
 

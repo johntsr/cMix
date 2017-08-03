@@ -6,6 +6,7 @@ from network.user import User
 
 b = 5
 
+
 def setUpNetwork():
     nh = NetworkHandler(b)
     node1 = MixNode(b)

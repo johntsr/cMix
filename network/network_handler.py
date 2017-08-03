@@ -176,4 +176,3 @@ class NetworkHandler (NetworkPart):
         if self.receiversBuffer.isFull():
             self.network.sendToLastNode(Message(Callback.REAL_RET_MIX, self.receiversBuffer.getBlindMessages()))
         return Status.OK
-
