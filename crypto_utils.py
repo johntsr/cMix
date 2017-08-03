@@ -1,10 +1,15 @@
 from Crypto import Random, Util
 
-def shuffle(sequence):
-    Random.random.shuffle(sequence)
+
+# shuffle an array in place
+def shuffle(array):
+    Random.random.shuffle(array)
 
 
+# compute the inverse permutation array of a given one
 def inversePermute(perm):
+    # e.g.
+    # [3, 2, 0, 1] -> [2, 3, 1, 0]
     permInverse = []
     b = len(perm)
     for p in range(0, b):
@@ -15,15 +20,11 @@ def inversePermute(perm):
     return permInverse
 
 
-def power(base, exp, modulo=None):
-    if modulo is None:
-        return pow(base, exp)
-    else:
-        return pow(base, exp, modulo)
-
-
+# class the represents an ElGamal entity
 class ElGamal:
 
+    # an ElGamal entity basically consists of a tuple (random component, message component)
+    # the constructor encrypts a given value with a given key
     def __init__(self, sharedKey=None, value=None):
         self.randomComponent = None
         self.messageComponent = None
@@ -35,6 +36,7 @@ class ElGamal:
     def __eq__(self, other):
         return self.randomComponent == other.randomComponent and self.messageComponent == other.messageComponent
 
+    # computes component wise multiplication of the ElGamal components
     @staticmethod
     def multiply(c1, c2):
         result = ElGamal()
@@ -43,12 +45,12 @@ class ElGamal:
         return result
 
 
+# wrapper class of a python array and common operations in cMix
 class Vector:
 
+    # the class consists of the vector with the actual data
     def __init__(self, vector):
         self.vector = vector
-        self.multiplyFun = None
-        self.scalarMultiplyFun = None
 
     def __eq__(self, other):
         return self.vector == other.vector
@@ -62,6 +64,11 @@ class Vector:
     def append(self, element):
         self.vector.append(element)
 
+    def pop(self):
+        result = self.vector[-1]
+        del self.vector[-1]
+        return result
+
     def permute(self, perm):
         return Vector([self.vector[p] for p in perm])
 
@@ -73,6 +80,7 @@ class Vector:
         return [multiplyFunction(v1, v2) for v1, v2 in zip(vector1.vector, vector2.vector)]
 
 
+# class that represents a vector of ElGamal entities
 class ElGamalVector(Vector):
 
     def __init__(self, vector, key=None):
@@ -94,6 +102,7 @@ class ElGamalVector(Vector):
         return ElGamalVector(vector=Vector.multiply__(vector1, vector2, ElGamal.multiply))
 
 
+# class that represents a vector of cyclic group members
 class CyclicGroupVector(Vector):
 
     def __init__(self, size=None, vector=None):
@@ -108,11 +117,6 @@ class CyclicGroupVector(Vector):
 
     def inverse(self):
         return CyclicGroupVector(vector=[CyclicGroup.inverse(v) for v in self.vector])
-
-    def pop(self):
-        result = self.vector[-1]
-        del self.vector[-1]
-        return result
 
     def encrypt(self, key):
         return ElGamalVector(self.vector, key)
@@ -132,6 +136,8 @@ class CyclicGroupVector(Vector):
     def random():
         return CyclicGroupVector(size=1)
 
+
+# class that wraps a cyclic group vector along with its inverse
 class CyclicGroupDualArray:
 
     def __init__(self, b):
@@ -139,6 +145,7 @@ class CyclicGroupDualArray:
         self.inverse = CyclicGroupVector(vector=[CyclicGroup.inverse(a) for a in self.array.vector])
 
 
+# class with static methods that implement the cyclic group specification base on modular multiplications
 class CyclicGroup:
 
     g =     19167066187022047436478413372880824313438678797887170030948364708695623454002582820938932961803261022277829853214287063757589819807116677650566996585535208649540448432196806454948132946013329765141883558367653598679571199251774119976449205171262636938096065535299103638890429717713646407483320109071252653916730386204380996827449178389044942428078669947938163252615751345293014449317883432900504074626873215717661648356281447274508124643639202368368971023489627632546277201661921395442643626191532112873763159722062406562807440086883536046720111922074921528340803081581395273135050422967787911879683841394288935013751
@@ -153,7 +160,7 @@ class CyclicGroup:
 
     @staticmethod
     def exp(r, e):
-        return power(r, e, CyclicGroup.modulo)
+        return pow(r, e, CyclicGroup.modulo)
 
     @staticmethod
     def randomExp(generator=None):

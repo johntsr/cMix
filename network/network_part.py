@@ -2,7 +2,19 @@ from crypto_utils import CyclicGroup
 from network_utils import Status, NetworkError, handleError
 
 
+# superclass of all parties in the "Network"
 class NetworkPart:
+
+    """
+    The class consists of:
+    - a reference to the network
+    - a unique id in the network
+    - associations of message codes and callback functions
+    Moreover, those callbacks may have a limited number of times that can be called.
+    This limit is useful when, for example, the NH waits for all the nodes to send a share. Then, the callback that
+    collects the shares must be called a fixed number of times.
+    If this limit is exceeded, an error is raised by the network.
+    """
     def __init__(self):
         self.network = None
         self.id = CyclicGroup.getUniqueId()

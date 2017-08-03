@@ -8,7 +8,15 @@ def randomResponse(message):
     return CyclicGroupVector.random()
 
 
+# class that represents a user in the system
 class User (NetworkPart):
+
+    """
+    The class consists of:
+    - the key manager, whose keys are used to blind and un-blind messages/responses
+    - the response handler, that reads a message and produces a response
+    - the LAST message and response the user sent and received (or received and sent)
+    """
 
     def __init__(self):
         NetworkPart.__init__(self)
@@ -21,18 +29,17 @@ class User (NetworkPart):
 
         self.keyManager = KeyManager()
 
-        self.responseGenerator = randomResponse
+        self.responseHandler = randomResponse
 
         self.associateCallback(Callback.KEY_USER, self.storeKeyUser)
         self.associateCallback(Callback.USER_MESSAGE, self.readMessage)
         self.associateCallback(Callback.USER_RESPONSE, self.readResponse)
 
+    # the key establishment takes place here
     def setUp(self):
         self.network.broadcastToNodes(self.id, Message(Callback.KEY_USER, self.id))
 
-    def setResponseGenerator(self, responseGen):
-        self.responseGenerator = responseGen
-
+    # store the keys that a node sent
     def storeKeyUser(self, message):
         nodeId = message.payload[0]
         messageKey = message.payload[1]
@@ -40,43 +47,41 @@ class User (NetworkPart):
         self.keyManager.addSeeds(nodeId, (messageKey, responseKey))
         return Status.OK
 
+    def setResponseHandler(self, responseGen):
+        self.responseHandler = responseGen
+
+    # send a message to a user through the mixnet
     def sendMessage(self, userId, messageVector):
+        # store the message for future reference
         self.messageSent = messageVector.copyVector()
 
-        combinedKey = self.keyManager.getCombinedKey(type=KeyManager.MESSAGE, inverse=True)
-        messageVector.append(self.id)
+        # append the userId (the receiver)
+        # the NH will read this id (after the message is un-blinded) and route the message accordingly
         messageVector.append(userId)
-        # print "Will send message: "
-        # print messageVector.vector
+
+        # blind the message with the combined key and send it to the NH
+        combinedKey = self.keyManager.getCombinedKey(type=KeyManager.MESSAGE, inverse=True)
         blindMessage = CyclicGroupVector.scalarMultiply(messageVector, combinedKey)
-        payload = self.id, blindMessage
-        self.network.sendToNH(Message(Callback.USER_MESSAGE, payload))
+        self.network.sendToNH(Message(Callback.USER_MESSAGE, (self.id, blindMessage)))
 
-
+    # read a message from the mixnet and send a response
     def readMessage(self, message):
-
+        # the payload is the message (mapped to cyclic group members)
         messageVector = message.payload
-        senderId = messageVector.pop()
-        responseVector = self.responseGenerator(messageVector)
 
-        # print "\n\nUser "
-        # print self.id
-        # print "Got Message:"
-        # print messageVector.vector
-        # print "From user:"
-        # print senderId
-        # print "Will respond: "
-        # print responseVector.vector
+        # compute a response and send it to the mixnet
+        responseVector = self.responseHandler(messageVector)
+        self.network.sendToNH(Message(Callback.USER_RESPONSE, (self.id, responseVector)))
 
-        payload = self.id, responseVector
-        self.network.sendToNH(Message(Callback.USER_RESPONSE, payload))
-
+        # store message and response for future reference
         self.messageGot = messageVector.copyVector()
         self.responseSent = responseVector.copyVector()
 
         return Status.OK
 
+    # read a response (after I sent a message)
     def readResponse(self, message):
+        # un-blind the response and store it for future reference
         responseVector = CyclicGroupVector.scalarMultiply(message.payload, self.keyManager.getCombinedKey(type=KeyManager.RESPONSE, inverse=True))
         self.responseGot = responseVector.copyVector()
         return Status.OK

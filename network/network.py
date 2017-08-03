@@ -1,7 +1,22 @@
 from network_utils import Status, NetworkError
 
 
+# a mocking network class
 class Network:
+
+    """
+    The class consists of:
+    - the Network Handler (NH)
+    - the mix nodes
+    - the users of the system
+
+    All the above parties implement the "NetworkPart" class
+
+    Proper usage:
+    - first, set the NH
+    - the, add all the mix nodes
+    - afterwards, call the "init" method and add users to the system (the order here doesn't matter)
+    """
     def __init__(self):
         self.networkHandler = None
         self.mixNodes = []

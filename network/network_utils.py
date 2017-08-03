@@ -2,11 +2,15 @@ import logging
 import sys
 
 
+# status codes useful for monitoring the traffic in the mixnet
+# each callback should return Status.OK if it exited normally
+# otherwise (e.g. if call limit exceeded), it returns Status.ERROR
 class Status:
     OK = 0
     ERROR = 1
 
 
+# callback codes used to distinguish the various message types in the mixnet
 class Callback:
     KEY_SHARE = 0
     PRE_FOR_PREPROCESS = 1
@@ -25,7 +29,14 @@ class Callback:
     REAL_RET_MIX_COMMIT = 14
     REAL_RET_POSTPROCESS = 15
 
+# class that represents a message in the mixnet
 class Message:
+
+    """
+    The class consists of:
+    - the callback code
+    - the payload to be delivered
+    """
 
     def __init__(self, callback, payload):
         self.callback = callback
