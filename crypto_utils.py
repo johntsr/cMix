@@ -26,23 +26,22 @@ class ElGamal:
     # an ElGamal entity basically consists of a tuple (random component, message component)
     # the constructor encrypts a given value with a given key
     def __init__(self, sharedKey=None, value=None):
-        self.randomComponent = None
-        self.messageComponent = None
+        self.components = None
         if sharedKey is not None and value is not None:
+            # random -> 0
+            # message -> 1
             y = CyclicGroup.randomExp()
-            self.randomComponent = CyclicGroup.exp2group(y)
-            self.messageComponent = CyclicGroup.multiply(value, CyclicGroup.exp(sharedKey, y))
+            self.components = [CyclicGroup.exp2group(y), CyclicGroup.multiply(value, CyclicGroup.exp(sharedKey, y))]
 
     def __eq__(self, other):
-        return self.randomComponent == other.randomComponent and self.messageComponent == other.messageComponent
+        return self.components == other.components
 
     # computes component wise multiplication of the ElGamal components
     @staticmethod
     def multiply(c1, c2):
-        result = ElGamal()
-        result.randomComponent = CyclicGroup.multiply(c1.randomComponent, c2.randomComponent)
-        result.messageComponent = CyclicGroup.multiply(c1.messageComponent, c2.messageComponent)
-        return result
+        randomComponent = CyclicGroup.multiply(c1[0], c2[0])
+        messageComponent = CyclicGroup.multiply(c1[1], c2[1])
+        return [randomComponent, messageComponent]
 
 
 # wrapper class of a python array and common operations in cMix
@@ -86,16 +85,16 @@ class ElGamalVector(Vector):
     def __init__(self, vector, key=None):
         Vector.__init__(self, vector)
         if key is not None:
-            self.vector = [ElGamal(key, v) for v in vector]
+            self.vector = [ElGamal(key, v).components for v in vector]
 
     def permute(self, perm):
         return ElGamalVector(vector=Vector.permute(self, perm).vector)
 
-    def messageComponents(self):
-        return CyclicGroupVector(vector=[r.messageComponent for r in self.vector])
-
     def randomComponents(self):
-        return CyclicGroupVector(vector=[r.randomComponent for r in self.vector])
+        return CyclicGroupVector(vector=[r[0] for r in self.vector])
+
+    def messageComponents(self):
+        return CyclicGroupVector(vector=[r[1] for r in self.vector])
 
     @staticmethod
     def multiply(vector1, vector2):

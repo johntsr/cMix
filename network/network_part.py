@@ -1,5 +1,5 @@
 from crypto_utils import CyclicGroup
-from network_utils import Status, NetworkError, handleError
+from network_utils import Status, NetworkError, handleError, Message
 
 
 # superclass of all parties in the "Network"
@@ -33,7 +33,8 @@ class NetworkPart:
     def isLastCall(self, code):
         return self.timesCalled[code] == self.timesMax[code]
 
-    def receive(self, message):
+    def receive(self, messageJSON):
+        message = Message.fromJSON(messageJSON)
         if self.timesMax[message.callback] is None or self.timesCalled[message.callback] < self.timesMax[message.callback]:
             self.timesCalled[message.callback] += 1
             return self.callbacks[message.callback](message)

@@ -74,104 +74,108 @@ class MixNode (NetworkPart):
     def sendUserKey(self, message):
         userId = message.payload
         self.keyManager.addSeeds(userId)
-        payload = self.id, self.keyManager.getSeed(userId, KeyManager.MESSAGE), self.keyManager.getSeed(userId, KeyManager.RESPONSE)
+        payload = [self.id, self.keyManager.getSeed(userId, KeyManager.MESSAGE), self.keyManager.getSeed(userId, KeyManager.RESPONSE)]
         self.network.sendToUser(userId, Message(Callback.KEY_USER, payload))
         return Status.OK
 
     # called in network.init(), initiates the precomputation process
     def precompute(self):
-        self.network.sendToNH(Message(Callback.PRE_FOR_PREPROCESS, self.r.inverse.encrypt(self.sharedKey)))
+        self.network.sendToNH(Message(Callback.PRE_FOR_PREPROCESS, self.r.inverse.encrypt(self.sharedKey).vector))
 
     # callback that performs the mixing process in the the forward path of precomputation phase
     def preForwardMix(self, message):
-        status = self.__preMix(message=message, path='FOR')
+        status = self.__preMix(message=ElGamalVector(vector=message.payload), path='FOR')
 
         # the last node initiates the matching return path
         if self.__finalNode('FOR'):
             self.network.sendToPreviousNode(self.id, Message(Callback.PRE_RET_MIX,
-                                                             self.S['RET'].inverse.encrypt(self.sharedKey)))
+                                                             self.S['RET'].inverse.encrypt(self.sharedKey).vector))
         return status
 
     # callback that computes the decryption share of the forward path
     def preForwardPostProcess(self, message):
-        return self.__prePostProcess(message=message, path='FOR')
+        return self.__prePostProcess(randomComponents=CyclicGroupVector(vector=message.payload), path='FOR')
 
     # callback that performs mixing process in the the return path of precomputation phase
     def preReturnMix(self, message):
-        return self.__preMix(message=message, path='RET')
+        return self.__preMix(message=ElGamalVector(vector=message.payload), path='RET')
 
     # callback that computes the decryption share of the return path
     def preReturnPostProcess(self, message):
-        return self.__prePostProcess(message=message, path='RET')
+        return self.__prePostProcess(randomComponents=CyclicGroupVector(vector=message.payload), path='RET')
 
     # callback that computes the value that gradually replaces "keys" with "r" values in blind "messages"
     def realForPreProcess(self, message):
         self.senders = message.payload
         cyclicVector = self.keyManager.getNextKeys(ids=self.senders, type=KeyManager.MESSAGE, inverse=False)
         product = CyclicGroupVector.multiply(cyclicVector, self.r.array)
-        self.network.sendToNH(Message(Callback.REAL_FOR_PREPROCESS, product))
+        self.network.sendToNH(Message(Callback.REAL_FOR_PREPROCESS, product.vector))
         return Status.OK
 
     # callback that performs the mixing process in the the forward path of real-time phase
     def realForMix(self, message):
-        return self.__realMix(message=message, path='FOR')
+        return self.__realMix(message=Vector(vector=[CyclicGroupVector(vector=v) for v in message.payload]), path='FOR')
 
     # callback that performs the mixing process in the the return path of real-time phase
     def realRetMix(self, message):
         def tempProcess(temp):
             return self.__returnPathKeyBlinding(temp)
-        return self.__realMix(message=message, path='RET', tempProcess=tempProcess)
+        return self.__realMix(message=Vector(vector=[CyclicGroupVector(vector=v) for v in message.payload]), path='RET',
+                              tempProcess=tempProcess)
 
     # callback that stores the commitment of the last node regarding
     # the mixing process in the the forward path of real-time phase
     def realForMixCommit(self, message):
         def resultProcess(decrShare):
             return decrShare
-        return self.__realMixCommit(message=message, path='FOR', resultProcess=resultProcess)
+        return self.__realMixCommit(message=Vector(vector=[CyclicGroupVector(vector=v) for v in message.payload]),
+                                    path='FOR', resultProcess=resultProcess)
 
     # callback that stores the commitment of the last node regarding
     # the mixing process in the the return path of real-time phase
     def realRetMixCommit(self, message):
         def resultProcess(decrShare):
             return self.__returnPathKeyBlinding(decrShare)
-        return self.__realMixCommit(message=message, path='RET', resultProcess=resultProcess)
+        return self.__realMixCommit(message=Vector(vector=[CyclicGroupVector(vector=v) for v in message.payload]),
+                                    path='RET', resultProcess=resultProcess)
 
     # performs the mixing process of the precomputation phase
     def __preMix(self, message, path):
         result = ElGamalVector.multiply(
-            message.payload.permute(self.permutation[path]),
+            message.permute(self.permutation[path]),
             self.S[path].inverse.encrypt(self.sharedKey)
         )
         if not self.__finalNode(path):
-            self.__toNextNode(path, Message(self.preMixCallback[path], result))
+            self.__toNextNode(path, Message(self.preMixCallback[path], result.vector))
         else:
             self.mixMessageComponents[path] = result.messageComponents()
-            message = Message(self.prePostProcessCallback[path], result.randomComponents())
+            message = Message(self.prePostProcessCallback[path], result.randomComponents().vector)
             self.network.broadcastToNodes(self.id, message)
-            self.receive(message)
+            self.receive(message.toJSON())
         return Status.OK
 
     # performs the mixing process of the real-time phase
     def __realMix(self, message, path, tempProcess=None):
-        temp = message.payload.permute(self.permutation[path])
+        temp = message.permute(self.permutation[path])
         result = Vector(
             [CyclicGroupVector.scalarMultiply(temp.at(i), self.S[path].array.at(i)) for i in range(0, self.b)])
         if not self.__finalNode(path):
-            self.__toNextNode(path, Message(self.realMixCallback[path], result))
+            self.__toNextNode(path, Message(self.realMixCallback[path], [v.vector for v in result.vector]))
         else:
-            self.network.broadcastToNodes(self.id, Message(self.mixCommitCallback[path], result))
+            self.network.broadcastToNodes(self.id,
+                                          Message(self.mixCommitCallback[path], [v.vector for v in result.vector]))
             temp = CyclicGroupVector.multiply(self.decryptionShare[path], self.mixMessageComponents[path])
             if tempProcess is not None:
                 temp = tempProcess(temp)
 
             result = Vector(
                 [CyclicGroupVector.scalarMultiply(result.at(i), temp.at(i)) for i in range(0, self.b)])
-            self.network.sendToNH(Message(self.realPostProcessCallback[path], (True, result)))
+            self.network.sendToNH(
+                Message(self.realPostProcessCallback[path], [True, [v.vector for v in result.vector]]))
         return Status.OK
 
     # computes the decryption share
-    def __prePostProcess(self, message, path):
-        randomComponents = message.payload
+    def __prePostProcess(self, randomComponents, path):
         self.decryptionShare[path] = randomComponents.exp(self.e[0]).inverse()
         return Status.OK
 
@@ -183,9 +187,9 @@ class MixNode (NetworkPart):
 
     # stores the mixing commitment
     def __realMixCommit(self, message, path, resultProcess):
-        self.realMixCommitment[path] = message.payload
+        self.realMixCommitment[path] = message
         result = resultProcess(self.decryptionShare[path])
-        self.network.sendToNH(Message(self.realPostProcessCallback[path], (False, result)))
+        self.network.sendToNH(Message(self.realPostProcessCallback[path], [False, result.vector]))
         return Status.OK
 
     def __toNextNode(self, path, message):

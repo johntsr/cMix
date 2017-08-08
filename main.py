@@ -3,6 +3,7 @@ from network.network import Network
 from network.network_handler import NetworkHandler
 from network.mix_node import MixNode
 from network.user import User
+import json
 
 b = 5
 

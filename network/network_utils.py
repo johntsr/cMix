@@ -1,6 +1,6 @@
 import logging
 import sys
-
+import json
 
 # status codes useful for monitoring the traffic in the mixnet
 # each callback should return Status.OK if it exited normally
@@ -29,8 +29,12 @@ class Callback:
     REAL_RET_MIX_COMMIT = 14
     REAL_RET_POSTPROCESS = 15
 
+
 # class that represents a message in the mixnet
 class Message:
+
+    # classLookup = {'class_name': class_name}
+    classLookup = {}
 
     """
     The class consists of:
@@ -44,6 +48,31 @@ class Message:
 
     def __str__(self):
         return "\nCallback: " + str(self.callback) + "\nPayload: " + str(self.payload)
+
+    def toJSON(self):
+        return json.dumps(self.__dict__)
+
+    @staticmethod
+    def fromJSON(jsonString):
+        temp = json.loads(jsonString)
+        return Message(temp['callback'], temp['payload'])
+
+    # @staticmethod
+    # def fromJSON(jsonString):
+    #     dictValues = json.loads(jsonString)
+    #     callback = dictValues['callback']
+    #     if dictValues['class'] == 'long':
+    #         payload = long(dictValues['data'])
+    #     elif dictValues['class'] == 'array':
+    #         payload = [long(data) for data in dictValues['data']]
+    #     else:
+    #         payload = Message.classLookup[dictValues['class']].fromJSON(dictValues['data'])
+    #     return Message(callback, payload)
+
+
+# def valu2JSON(value):
+#     if isinstance(value, (long, list)):
+#         return
 
 
 class NetworkError(RuntimeError):

@@ -46,7 +46,7 @@ class UsersBuffer:
         return self.users
 
     def getBlindMessages(self):
-        return Vector(vector=self.messages)
+        return [v.vector for v in self.messages]
 
     # multiply with a mix node share (un-blind partly)
     def scalarMultiply(self, cyclicVector):
@@ -114,8 +114,8 @@ class NetworkHandler (NetworkPart):
 
     # callback called before the precomputation phase, when the public key is collectively constructed
     def appendKeyShare(self, message):
-        share = message.payload
         code = message.callback
+        share = message.payload
         self.d = CyclicGroup.multiply(self.d, share)
         if self.isLastCall(code):
             self.broadcast(Message(Callback.KEY_SHARE, self.d))
@@ -124,21 +124,21 @@ class NetworkHandler (NetworkPart):
 
     # callback that computes the precomputation value needed and then broadcasts
     def preForPreProcess(self, message):
-        r_inverseEG = message.payload
         code = message.callback
+        r_inverseEG = ElGamalVector(vector=message.payload)
 
         if not self.R_inverseEG:
             self.R_inverseEG = r_inverseEG
         else:
             self.R_inverseEG = ElGamalVector.multiply(self.R_inverseEG, r_inverseEG)
             if self.isLastCall(code):
-                self.network.sendToFirstNode(Message(Callback.PRE_FOR_MIX, self.R_inverseEG))
+                self.network.sendToFirstNode(Message(Callback.PRE_FOR_MIX, self.R_inverseEG.vector))
         return Status.OK
 
     # called by a user that wants to send a "message"
     def getUserMessage(self, message):
         senderId = message.payload[0]
-        blindMessage = message.payload[1]
+        blindMessage = CyclicGroupVector(vector=message.payload[1])
         self.sendersBuffer.addUser(senderId, blindMessage)
         if self.sendersBuffer.isFull():
             self.network.broadcastToNodes(self.id, Message(Callback.REAL_FOR_PREPROCESS, self.sendersBuffer.getUsers()))
@@ -147,7 +147,7 @@ class NetworkHandler (NetworkPart):
     # called by a user that wants to send a "reponse"
     def getUserResponse(self, message):
         receiverId = message.payload[0]
-        blindMessage = message.payload[1]
+        blindMessage = CyclicGroupVector(vector=message.payload[1])
         self.receiversBuffer.addUserMessage(receiverId, blindMessage)
         if self.receiversBuffer.isFull():
             self.network.sendToLastNode(Message(Callback.REAL_RET_MIX, self.receiversBuffer.getBlindMessages()))
@@ -156,7 +156,7 @@ class NetworkHandler (NetworkPart):
     # callback in real-time phase, gradually replaces "keys" in blind messages with "random values" of mix nodes
     def realForPreProcess(self, message):
         code = message.callback
-        cyclicVector = message.payload
+        cyclicVector = CyclicGroupVector(vector=message.payload)
         self.sendersBuffer.scalarMultiply(cyclicVector)
         if self.isLastCall(code):
             self.network.sendToFirstNode(Message(Callback.REAL_FOR_MIX, self.sendersBuffer.getBlindMessages()))
@@ -197,25 +197,25 @@ class NetworkHandler (NetworkPart):
     def __realPostProcess(self, message, path, getUsersCallback, cleanUp=None):
         code = message.callback
         isLastNode = message.payload[0]
-        payload = message.payload[1]
 
         # the last node send the mix results along with his decryption share
         if isLastNode:
-            self.mixResult[path] = payload
+            self.mixResult[path] = Vector(vector=[CyclicGroupVector(vector=v) for v in message.payload[1]])
         else:
-            self.__appendDecrShare(payload, path)
+            self.__appendDecrShare(CyclicGroupVector(vector=message.payload[1]), path)
 
-        # gradually unblind messages
+        # gradually un-blind messages
         if self.mixResult[path] is not None and self.decryptionShares[path] is not None:
             self.mixResult[path] = Vector(
-                [CyclicGroupVector.scalarMultiply(self.mixResult[path].at(i), self.decryptionShares[path].at(i)) for i in
+                [CyclicGroupVector.scalarMultiply(self.mixResult[path].at(i), self.decryptionShares[path].at(i)) for i
+                 in
                  range(0, self.b)])
 
         # when they are un-blinded, send to users
         if self.isLastCall(code):
             users = getUsersCallback()
             for i in range(0, self.b):
-                self.network.sendToUser(users[i], Message(self.sendCallback[path], self.mixResult[path].at(i)))
+                self.network.sendToUser(users[i], Message(self.sendCallback[path], self.mixResult[path].at(i).vector))
             if cleanUp is not None:
                 cleanUp()
         return Status.OK

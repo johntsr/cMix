@@ -41,7 +41,7 @@ class Network:
         user.setUp()
 
     def __receive(self, recipientId, message):
-        code = self.networkParts[recipientId].receive(message)
+        code = self.networkParts[recipientId].receive(message.toJSON())
         if code != Status.OK:
             raise NetworkError((code, recipientId, str(message)))
 

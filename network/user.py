@@ -62,16 +62,16 @@ class User (NetworkPart):
         # blind the message with the combined key and send it to the NH
         combinedKey = self.keyManager.getCombinedKey(type=KeyManager.MESSAGE, inverse=True)
         blindMessage = CyclicGroupVector.scalarMultiply(messageVector, combinedKey)
-        self.network.sendToNH(Message(Callback.USER_MESSAGE, (self.id, blindMessage)))
+        self.network.sendToNH(Message(Callback.USER_MESSAGE, [self.id, blindMessage.vector]))
 
     # read a message from the mixnet and send a response
     def readMessage(self, message):
         # the payload is the message (mapped to cyclic group members)
-        messageVector = message.payload
+        messageVector = CyclicGroupVector(vector=message.payload)
 
         # compute a response and send it to the mixnet
         responseVector = self.responseHandler(messageVector)
-        self.network.sendToNH(Message(Callback.USER_RESPONSE, (self.id, responseVector)))
+        self.network.sendToNH(Message(Callback.USER_RESPONSE, [self.id, responseVector.vector]))
 
         # store message and response for future reference
         self.messageGot = messageVector.copyVector()
@@ -82,6 +82,6 @@ class User (NetworkPart):
     # read a response (after I sent a message)
     def readResponse(self, message):
         # un-blind the response and store it for future reference
-        responseVector = CyclicGroupVector.scalarMultiply(message.payload, self.keyManager.getCombinedKey(type=KeyManager.RESPONSE, inverse=True))
+        responseVector = CyclicGroupVector.scalarMultiply(CyclicGroupVector(vector=message.payload), self.keyManager.getCombinedKey(type=KeyManager.RESPONSE, inverse=True))
         self.responseGot = responseVector.copyVector()
         return Status.OK
