@@ -1,4 +1,5 @@
 import random
+
 from crypto_utils import CyclicGroup, CyclicGroupVector
 
 

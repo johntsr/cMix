@@ -28,6 +28,13 @@ class Callback:
     REAL_RET_MIX = 13
     REAL_RET_MIX_COMMIT = 14
     REAL_RET_POSTPROCESS = 15
+    USER_MESSAGE_STATUS = 16
+
+
+class MessageStatus:
+    NEW = 0
+    PENDING = 1
+    SENT = 2
 
 
 # class that represents a message in the mixnet

@@ -1,0 +1,41 @@
+{
+  "globals": {
+    "b" : 3,
+    "nodes": 2,
+    "bots": 2
+  },
+  "users": [
+    {
+      "name": "John"
+    },
+    {
+      "name": "Bill"
+    }
+  ],
+  "messages": {
+    "John": [
+      {
+        "to": "Bill",
+        "content": "Hello Bill, how are you?"
+      },
+      {
+        "to": "Bill",
+        "content": "It's Johny!"
+      }
+    ],
+    "Bill": [
+      {
+        "to": "Bill",
+        "content": "Say hello to my little friend!"
+      },
+      {
+        "to": "Bill",
+        "content": "Say hello to my little friend!"
+      },
+      {
+        "to": "Bill",
+        "content": "Say hello to my little friend!"
+      }
+    ]
+  }
+}

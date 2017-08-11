@@ -20,8 +20,10 @@ class Network:
     def __init__(self):
         self.networkHandler = None
         self.mixNodes = []
-        self.users = {}
+        self.usersById = {}
+        self.usersByName = {}
         self.networkParts = {}
+        self.b = None
 
     def setNetworkHandler(self, networkHandler):
         networkHandler.setNetwork(self)
@@ -36,11 +38,18 @@ class Network:
 
     def addUser(self, user):
         user.setNetwork(self)
-        self.users[user.id] = user
+        self.usersById[user.id] = user
         self.networkParts[user.id] = user
+        self.usersByName[user.name] = user
         user.setUp()
 
-    def __receive(self, recipientId, message):
+    def username2id(self, name):
+        return self.usersByName[name].id
+
+    def user(self, username):
+        return self.usersByName[username]
+
+    def __send(self, recipientId, message):
         code = self.networkParts[recipientId].receive(message.toJSON())
         if code != Status.OK:
             raise NetworkError((code, recipientId, str(message)))
@@ -48,16 +57,16 @@ class Network:
     def broadcast(self, senderId, message):
         for partId in self.networkParts:
             if partId != senderId:
-                self.__receive(partId, message)
+                self.__send(partId, message)
 
     def sendToNH(self, message):
-        self.__receive(self.networkHandler.id, message)
+        self.__send(self.networkHandler.id, message)
 
     def sendToFirstNode(self, message):
-        self.__receive(self.mixNodes[0].id, message)
+        self.__send(self.mixNodes[0].id, message)
 
     def sendToLastNode(self, message):
-        self.__receive(self.mixNodes[-1].id, message)
+        self.__send(self.mixNodes[-1].id, message)
 
     def isLastNode(self, id):
         return self.mixNodes[-1].id == id
@@ -68,7 +77,7 @@ class Network:
 
         for i in range(0, len(self.mixNodes) - 1):
             if self.mixNodes[i].id == id:
-                self.__receive(self.mixNodes[i+1].id, message)
+                self.__send(self.mixNodes[i + 1].id, message)
 
     def isFirstNode(self, id):
         return self.mixNodes[0].id == id
@@ -79,17 +88,17 @@ class Network:
 
         for i in range(1, len(self.mixNodes)):
             if self.mixNodes[i].id == id:
-                self.__receive(self.mixNodes[i-1].id, message)
+                self.__send(self.mixNodes[i - 1].id, message)
 
     def broadcastToNodes(self, id, message):
         for node in self.mixNodes:
             if node.id != id:
-                self.__receive(node.id, message)
+                self.__send(node.id, message)
 
     def sendToUser(self, id, message):
-        if self.users[id] is None:
+        if self.usersById[id] is None:
             raise NetworkError((Status.ERROR, id, "Cannot find user with id = " + id))
-        self.__receive(id, message)
+        self.__send(id, message)
 
     def init(self):
         print "Initializing precomputation phase..."

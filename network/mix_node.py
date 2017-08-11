@@ -1,6 +1,7 @@
-from crypto_utils import shuffle, inversePermute, CyclicGroup, ElGamalVector, CyclicGroupDualArray, CyclicGroupVector, \
-    Vector
 from key_manager import KeyManager
+from crypto_utils import shuffle, inversePermute, CyclicGroup, ElGamalVector, CyclicGroupDualArray, \
+    CyclicGroupVector, \
+    Vector
 from network_part import NetworkPart
 from network_utils import Status, Callback, Message
 

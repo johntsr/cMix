@@ -1,9 +1,12 @@
-import unittest, operator
-from crypto_utils import *
+import operator
+import unittest
+import uuid
+
+from network.crypto_utils import *
 from network.mix_node import MixNode
 from network.network import Network
 from network.network_handler import NetworkHandler
-from network.user import User, randomResponse
+from network.user import User, BasicHandler
 
 
 # class that tests the proper functionality of crypto_utils primitives
@@ -76,23 +79,62 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(m_A, m_B)
 
 
+class MathConverter:
+
+    ops = {"+": operator.add, "-": operator.sub, "*": operator.mul, "\\": operator.div}
+    mathToCyclic = {op: str(CyclicGroup.getUniqueId()) for op in ops.keys()}
+    for i in range(0, 100):
+        mathToCyclic[str(i)] = str(CyclicGroup.getUniqueId())
+
+    cyclicToMath = {v: k for k, v in mathToCyclic.iteritems()}
+
+    @staticmethod
+    def convert2cyclic(message):
+        return CyclicGroupVector(vector=[long(MathConverter.mathToCyclic[c]) for c in message])
+
+    @staticmethod
+    def convert2math(cyclicVector):
+        return [MathConverter.cyclicToMath[str(cyclicVector.at(i))] for i in range(0, cyclicVector.size())]
+
+
+class MathHandler:
+
+    @staticmethod
+    def setUp(user):
+        pass
+
+    @staticmethod
+    def messageHandler(user, cyclicVector):
+        m, op, n = MathConverter.convert2math(cyclicVector)
+        result = MathConverter.ops[op](long(n), long(m))
+        return MathConverter.convert2cyclic(str(result))
+
+    @staticmethod
+    def responseHandler(user, response):
+        pass
+
+    @staticmethod
+    def messageStatusHandler(user, messageId, status):
+        pass
+
+
 # class that tests the proper functionality of the cMix network
 class TestcMix(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # create a cMix mixnet of 3 mix-nodes and 10 users
         cls.b = 5
+        cls.nodes = 3
         cls.usersNum = 10
 
         cls.network = Network()
         cls.network.setNetworkHandler(NetworkHandler(cls.b))
-        cls.network.addMixNode(MixNode(cls.b))
-        cls.network.addMixNode(MixNode(cls.b))
-        cls.network.addMixNode(MixNode(cls.b))
+        for _ in range(0, cls.nodes):
+            cls.network.addMixNode(MixNode(cls.b))
 
         cls.network.init()
 
-        cls.users = [User() for _ in range(0, cls.usersNum)]
+        cls.users = [User("user") for _ in range(0, cls.usersNum)]
         for user in cls.users:
             cls.network.addUser(user)
 
@@ -100,7 +142,7 @@ class TestcMix(unittest.TestCase):
         # after every test
         self.network.networkHandler.reset()             # reset the NH (needed if a test fails)
         for user in self.users:                         # reset the response handler of the users
-            user.setResponseHandler(randomResponse)
+            user.setCallbackHandler(BasicHandler)
 
     # create pairs (sender, receiver) (for simplicity, neighbouring pairs)
     def __neighbourPairs(self, start, end):
@@ -111,7 +153,10 @@ class TestcMix(unittest.TestCase):
         for pair in pairs:
             sender = self.users[pair[0]]
             receiver = self.users[pair[1]]
-            sender.sendMessage(receiver.id, CyclicGroupVector.random())
+            sender.sendMessage(receiver.id, self.__uniqueid(), CyclicGroupVector.random())
+
+    def __uniqueid(self):
+        return str(uuid.uuid4())
 
     # test basic messaging
     def test_message_and_respond(self):
@@ -137,33 +182,14 @@ class TestcMix(unittest.TestCase):
     # messages of the form: (3 + 9), (12 * 5)
     # responses compute the result: 12, 60
     def test_math_exchange(self):
-        # first, map the messaging symbols uniquely to cyclic group members and backwards
-        # then, define a response handler (a function that reads a cMic message and outputs a cMix response)
-        # finally, check if the response is the expected result (3 + 9 == 12)
-
-        ops = {"+": operator.add, "-": operator.sub, "*": operator.mul, "\\": operator.div}
-        mathToCyclic = {op: CyclicGroup.getUniqueId() for op in ops.keys()}
-        for i in range(0, 100):
-            mathToCyclic[long(i)] = CyclicGroup.getUniqueId()
-
-        cyclicToMath = {v: k for k, v in mathToCyclic.iteritems()}
-
-        def doBasicMath(cyclicVector):
-            n = cyclicToMath[cyclicVector.at(0)]
-            op = cyclicToMath[cyclicVector.at(1)]
-            m = cyclicToMath[cyclicVector.at(2)]
-
-            result = ops[op](n, m)
-            return CyclicGroupVector(vector=[mathToCyclic[result]])
-
         alice = self.users[0]
         bob = self.users[1]
-        bob.setResponseHandler(doBasicMath)
-        alice.sendMessage(bob.id, CyclicGroupVector(vector=[mathToCyclic[3L], mathToCyclic['+'], mathToCyclic[9L]]))
+        bob.setCallbackHandler(MathHandler)
+        alice.sendMessage(bob.id, self.__uniqueid(), MathConverter.convert2cyclic("3+9"))
         self.__sendGarbage(self.__neighbourPairs(1, self.b))
 
-        result = cyclicToMath[alice.responseGot[0]]
-        self.assertEqual(result, 12L)
+        result = MathConverter.convert2math(CyclicGroupVector(vector=alice.responseGot))
+        self.assertEqual(''.join(result), "12")
 
 
 if __name__ == "__main__":

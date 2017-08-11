@@ -1,6 +1,6 @@
-from network_part import NetworkPart
 from crypto_utils import CyclicGroup, ElGamalVector, CyclicGroupVector, Vector
-from network_utils import Status, Callback, Message
+from network_part import NetworkPart
+from network_utils import Status, Callback, Message, MessageStatus
 
 
 # class that facilitates the management of the user messages buffer (batch of user messages)
@@ -17,26 +17,28 @@ class UsersBuffer:
         self.b = b
         self.users = []
         self.messages = []
+        self.messageIds = []
 
     # NOTE: this method is called only during the delivery of responses in the mixnet
     # it is needed to preserve the final order of the messages of the "messages" buffer to the "responses" buffer
     # in order to reverse-permute the responses and deliver them accordingly
     def copyUsers(self, users):
         self.users = list(users)
-        self.messages = [None] * (len(self.users))
+        self.messages = [None] * self.b
+        self.messageIds = [None] * self.b
+
+    # add a user message to the buffer
+    def addUser(self, userId, messageId, blindMessage):
+        if self.isFull():
+            raise Exception("Too many messages, something went wrong!")
+        self.users.append(userId)
+        self.messages.append(blindMessage)
+        self.messageIds.append(messageId)
 
     # NOTE: this method is called only during the delivery of responses in the mixnet
     # the correct order is preserved, now the responses are gathered one by one and stored to the according index
-    def addUser(self, userId, blindMessage):
-        if not self.isFull():
-            self.users.append(userId)
-            self.messages.append(blindMessage)
-
-    # add a user message to the buffer
-    def addUserMessage(self, userId, blindMessage):
-        for i in range(0, len(self.users)):
-            if self.users[i] == userId:
-                self.messages[i] = blindMessage
+    def addUserMessage(self, index, blindMessage):
+        self.messages[index] = blindMessage
 
     # full if "b" non-None messages are gathered
     def isFull(self):
@@ -45,8 +47,11 @@ class UsersBuffer:
     def getUsers(self):
         return self.users
 
-    def getBlindMessages(self):
-        return [v.vector for v in self.messages]
+    def getMessageIds(self):
+        return self.messageIds
+
+    def getMessages(self):
+        return [m.vector for m in self.messages]
 
     # multiply with a mix node share (un-blind partly)
     def scalarMultiply(self, cyclicVector):
@@ -138,19 +143,23 @@ class NetworkHandler (NetworkPart):
     # called by a user that wants to send a "message"
     def getUserMessage(self, message):
         senderId = message.payload[0]
-        blindMessage = CyclicGroupVector(vector=message.payload[1])
-        self.sendersBuffer.addUser(senderId, blindMessage)
+        messageId = message.payload[1]
+        blindMessage = CyclicGroupVector(vector=message.payload[2])
+        self.sendersBuffer.addUser(senderId, messageId, blindMessage)
+        self.network.sendToUser(senderId, Message(Callback.USER_MESSAGE_STATUS, (messageId, MessageStatus.PENDING)))
         if self.sendersBuffer.isFull():
+            for senderId, messageId in zip(self.sendersBuffer.getUsers(), self.sendersBuffer.getMessageIds()):
+                self.network.sendToUser(senderId, Message(Callback.USER_MESSAGE_STATUS, (messageId, MessageStatus.SENT)))
             self.network.broadcastToNodes(self.id, Message(Callback.REAL_FOR_PREPROCESS, self.sendersBuffer.getUsers()))
         return Status.OK
 
     # called by a user that wants to send a "reponse"
     def getUserResponse(self, message):
-        receiverId = message.payload[0]
-        blindMessage = CyclicGroupVector(vector=message.payload[1])
-        self.receiversBuffer.addUserMessage(receiverId, blindMessage)
+        index = message.payload[0]
+        response = CyclicGroupVector(vector=message.payload[1])
+        self.receiversBuffer.addUserMessage(index, response)
         if self.receiversBuffer.isFull():
-            self.network.sendToLastNode(Message(Callback.REAL_RET_MIX, self.receiversBuffer.getBlindMessages()))
+            self.network.sendToLastNode(Message(Callback.REAL_RET_MIX, self.receiversBuffer.getMessages()))
         return Status.OK
 
     # callback in real-time phase, gradually replaces "keys" in blind messages with "random values" of mix nodes
@@ -159,7 +168,7 @@ class NetworkHandler (NetworkPart):
         cyclicVector = CyclicGroupVector(vector=message.payload)
         self.sendersBuffer.scalarMultiply(cyclicVector)
         if self.isLastCall(code):
-            self.network.sendToFirstNode(Message(Callback.REAL_FOR_MIX, self.sendersBuffer.getBlindMessages()))
+            self.network.sendToFirstNode(Message(Callback.REAL_FOR_MIX, self.sendersBuffer.getMessages()))
         return Status.OK
 
     # callback in real-time phase, gradually un-blinds the mix results and delivers "messages" to users
@@ -178,10 +187,7 @@ class NetworkHandler (NetworkPart):
         def getUsers():
             return self.sendersBuffer.getUsers()
 
-        def cleanUp():
-            self.reset()
-
-        return self.__realPostProcess(message=message, path='RET', getUsersCallback=getUsers, cleanUp=cleanUp)
+        return self.__realPostProcess(message=message, path='RET', getUsersCallback=getUsers)
 
     # accumulate decryption shares if the mix results are not ready yet
     def __appendDecrShare(self, payload, path):
@@ -194,7 +200,7 @@ class NetworkHandler (NetworkPart):
                 self.decryptionShares[path] = payload
 
     # callback in real-time phase, gradually un-blinds the mix results and delivers messages (data) to users
-    def __realPostProcess(self, message, path, getUsersCallback, cleanUp=None):
+    def __realPostProcess(self, message, path, getUsersCallback):
         code = message.callback
         isLastNode = message.payload[0]
 
@@ -215,7 +221,16 @@ class NetworkHandler (NetworkPart):
         if self.isLastCall(code):
             users = getUsersCallback()
             for i in range(0, self.b):
-                self.network.sendToUser(users[i], Message(self.sendCallback[path], self.mixResult[path].at(i).vector))
-            if cleanUp is not None:
-                cleanUp()
+                if path == 'FOR':
+                    # in the forward path, also send the index
+                    # the response will contain this index, so the NH will know which slot to associate it with
+                    # NOTE: as an alternative, the NH could wait for a response before he delivers the next message
+                    # that way, the index is not needed to be sent
+                    payload = [i, self.mixResult[path].at(i).vector]
+                else:
+                    payload = self.mixResult[path].at(i).vector
+                self.network.sendToUser(users[i], Message(self.sendCallback[path], payload))
+            else:
+                if path == 'RET':
+                    self.reset()
         return Status.OK
