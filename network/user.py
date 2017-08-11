@@ -6,20 +6,19 @@ from network_utils import Status, Callback, Message
 
 class BasicHandler:
 
-    @staticmethod
-    def setUp(user):
+    def __init__(self):
         pass
 
-    @staticmethod
-    def messageHandler(self, message):
+    def setUp(self, user):
+        pass
+
+    def messageHandler(self, user, message):
         return CyclicGroupVector.random()
 
-    @staticmethod
-    def responseHandler(self, reponse):
+    def responseHandler(self, user, response):
         pass
 
-    @staticmethod
-    def messageStatusHandler(user, messageId, status):
+    def messageStatusHandler(self, user, messageId, status):
         pass
 
 
@@ -46,7 +45,7 @@ class User (NetworkPart):
         self.keyManager = KeyManager()
 
         if handler is None:
-            self.setCallbackHandler(BasicHandler)
+            self.setCallbackHandler(BasicHandler())
         else:
             self.setCallbackHandler(handler)
 
@@ -59,6 +58,9 @@ class User (NetworkPart):
     def setUp(self):
         self.network.broadcastToNodes(self.id, Message(Callback.KEY_USER, self.id))
 
+    def setCallbackHandler(self, callbackHandler):
+        self.callbackHandler = callbackHandler
+
     # store the keys that a node sent
     def storeKeyUser(self, message):
         nodeId = message.payload[0]
@@ -67,9 +69,6 @@ class User (NetworkPart):
         self.keyManager.addSeeds(nodeId, (messageKey, responseKey))
         self.callbackHandler.setUp(self)
         return Status.OK
-
-    def setCallbackHandler(self, callbackHandler):
-        self.callbackHandler = callbackHandler
 
     # send a message to a user through the mixnet
     def sendMessage(self, userId, messageId, messageVector):

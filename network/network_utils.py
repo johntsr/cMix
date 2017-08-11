@@ -64,23 +64,6 @@ class Message:
         temp = json.loads(jsonString)
         return Message(temp['callback'], temp['payload'])
 
-    # @staticmethod
-    # def fromJSON(jsonString):
-    #     dictValues = json.loads(jsonString)
-    #     callback = dictValues['callback']
-    #     if dictValues['class'] == 'long':
-    #         payload = long(dictValues['data'])
-    #     elif dictValues['class'] == 'array':
-    #         payload = [long(data) for data in dictValues['data']]
-    #     else:
-    #         payload = Message.classLookup[dictValues['class']].fromJSON(dictValues['data'])
-    #     return Message(callback, payload)
-
-
-# def valu2JSON(value):
-#     if isinstance(value, (long, list)):
-#         return
-
 
 class NetworkError(RuntimeError):
     def __init__(self, arg):

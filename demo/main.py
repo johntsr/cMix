@@ -86,7 +86,7 @@ def addBot():
 def addUser(username):
     if not user_management.user_exists(username):
         user_management.addUser(username)
-        user = User(username, CallbackHandler)
+        user = User(username, CallbackHandler())
         network.addUser(user)
         return user
 
@@ -128,6 +128,8 @@ def mainEventLoop():
                 if raw_input() == "yes":
                     sendGarbagge(pendingNum)
                     print "Delivered messages."
+                else:
+                    print "Some messages are not delivered."
             else:
                 print "Delivered messages."
         elif command == "add":

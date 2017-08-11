@@ -97,25 +97,12 @@ class MathConverter:
         return [MathConverter.cyclicToMath[str(cyclicVector.at(i))] for i in range(0, cyclicVector.size())]
 
 
-class MathHandler:
+class MathHandler(BasicHandler):
 
-    @staticmethod
-    def setUp(user):
-        pass
-
-    @staticmethod
-    def messageHandler(user, cyclicVector):
+    def messageHandler(self, user, cyclicVector):
         m, op, n = MathConverter.convert2math(cyclicVector)
         result = MathConverter.ops[op](long(n), long(m))
         return MathConverter.convert2cyclic(str(result))
-
-    @staticmethod
-    def responseHandler(user, response):
-        pass
-
-    @staticmethod
-    def messageStatusHandler(user, messageId, status):
-        pass
 
 
 # class that tests the proper functionality of the cMix network
@@ -142,7 +129,7 @@ class TestcMix(unittest.TestCase):
         # after every test
         self.network.networkHandler.reset()             # reset the NH (needed if a test fails)
         for user in self.users:                         # reset the response handler of the users
-            user.setCallbackHandler(BasicHandler)
+            user.setCallbackHandler(BasicHandler())
 
     # create pairs (sender, receiver) (for simplicity, neighbouring pairs)
     def __neighbourPairs(self, start, end):
@@ -184,7 +171,7 @@ class TestcMix(unittest.TestCase):
     def test_math_exchange(self):
         alice = self.users[0]
         bob = self.users[1]
-        bob.setCallbackHandler(MathHandler)
+        bob.setCallbackHandler(MathHandler())
         alice.sendMessage(bob.id, self.__uniqueid(), MathConverter.convert2cyclic("3+9"))
         self.__sendGarbage(self.__neighbourPairs(1, self.b))
 

@@ -4,7 +4,7 @@ import user_management
 from demo_utils import createDir, uniqueid, listFiles, moveFile, dateStr, createFile
 from network.crypto_utils import CyclicGroup, CyclicGroupVector
 from network.network_utils import MessageStatus
-
+from network.user import BasicHandler
 
 usersDir = "./demo/users/"
 
@@ -103,29 +103,22 @@ class UserManager:
 
 
 # class that contains callbacks of a "User" entity
-class CallbackHandler:
+class CallbackHandler(BasicHandler):
 
     # callback called once in the set up phase (after the key exchange)
     # create the directories of the user in the file system
-    @staticmethod
-    def setUp(user):
+    def setUp(self, user):
         UserManager(user.name).createDirectories()
 
     # callback called every time a message arrives
     # store the message and return a response, a simple "OK" is enough
-    @staticmethod
-    def messageHandler(user, cyclicVector):
+    def messageHandler(self, user, cyclicVector):
         manager = user_management.getManager(user.name)
         message = AsciiConverter.convert2string(cyclicVector)
         manager.storeMessage(message)
         return AsciiConverter.convert2cyclic("OK")
 
-    @staticmethod
-    def responseHandler(user, response):
-        pass
-
     # callback called every time a message status changes
     # propagate this change to the user manager object
-    @staticmethod
-    def messageStatusHandler(user, messageId, status):
+    def messageStatusHandler(self, user, messageId, status):
         user_management.getManager(user.name).updateFileStatus(messageId, status)
